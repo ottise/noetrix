@@ -1,0 +1,331 @@
+@import "tailwindcss";
+@import "./styles/ios-tokens.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--os-obsidian);
+  color: var(--os-ivory);
+  font-family: var(--font-body);
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  margin: 0;
+  padding: 0;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.035em;
+}
+
+code,
+.metadata {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background-color: rgba(185, 155, 121, 0.28);
+  color: var(--os-ivory-bright);
+}
+
+/* ==========================================================================
+   NOETRIX Typography System
+   - Logo NOETRIX: SF Pro Display · Semibold (600)
+   - Heading: SF Pro Display · Medium (500) · -0.035em
+   - Body: SF Pro Text · Regular (400) · -0.015em
+   - Navigation: SF Pro Text · Medium (500)
+   - Code / Metadata: SF Mono · Regular (400)
+   ========================================================================== */
+.noetrix-logo {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.font-editorial,
+.font-editorial-vi {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.editorial-display {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 4.6vw, 56px);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  color: var(--os-ivory-bright);
+}
+
+.editorial-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.6vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  color: var(--os-ivory-bright);
+}
+
+.editorial-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 28px);
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  color: var(--os-ivory-bright);
+}
+
+.editorial-h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.22;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  color: var(--os-ivory-bright);
+}
+
+/* SF Mono Technical Metadata & Eyebrows */
+.editorial-eyebrow,
+.ios-section-header {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--os-ivory-faint);
+}
+
+.ios-large-title {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.6vw, 40px);
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  color: var(--os-ivory-bright);
+}
+
+.ios-title-2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.18;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  color: var(--os-ivory-bright);
+}
+
+.ios-title-3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.22;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--os-ivory-bright);
+}
+
+.ios-headline {
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--os-ivory-bright);
+}
+
+.tabular-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Surfaces, Hairlines & Quiet Elevation
+   ========================================================================== */
+.editorial-surface,
+.ios-card {
+  background-color: var(--os-graphite);
+  border-radius: 14px;
+  border: 1px solid var(--os-border);
+}
+
+.ios-group {
+  background-color: var(--os-graphite);
+  border-radius: 14px;
+  border: 1px solid var(--os-border);
+  overflow: hidden;
+}
+
+.ios-inset-divider {
+  height: 1px;
+  margin-left: 16px;
+  background-color: var(--os-border);
+}
+
+.ios-fill,
+.ios-elevated {
+  background-color: var(--os-stone);
+  border: 1px solid transparent;
+  transition: border-color 220ms var(--ios-spring), background-color 220ms var(--ios-spring);
+}
+
+.ios-fill:focus-within,
+.ios-elevated:focus-within {
+  border-color: rgba(185, 155, 121, 0.35);
+}
+
+.ios-nav-frosted {
+  background-color: var(--ios-nav-bar);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid var(--os-border);
+}
+
+.ios-tab-frosted {
+  background-color: var(--ios-tab-bar);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-top: 1px solid var(--os-border);
+}
+
+.ios-hairline-t {
+  border-top: 1px solid var(--os-border);
+}
+
+.ios-hairline-b {
+  border-bottom: 1px solid var(--os-border);
+}
+
+.ios-hairline-r {
+  border-right: 1px solid var(--os-border);
+}
+
+.ios-pressable {
+  transition: transform 240ms var(--ios-spring), opacity 220ms ease, background-color 220ms ease, border-color 220ms ease;
+}
+
+.ios-pressable:active {
+  transform: scale(0.985);
+  opacity: 0.88;
+}
+
+.safe-top {
+  padding-top: max(10px, var(--safe-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(10px, var(--safe-bottom));
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 213, 203, 0.16);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 213, 203, 0.28);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+@keyframes editorial-room-enter {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ios-sheet-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ios-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ios-pill-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-ios-view {
+  animation: editorial-room-enter 320ms var(--ios-spring) both;
+}
+
+.animate-ios-sheet {
+  animation: ios-sheet-up 280ms var(--ios-spring) both;
+}
+
+.animate-ios-backdrop {
+  animation: ios-backdrop-in 200ms ease both;
+}
+
+.animate-ios-toast {
+  animation: ios-pill-drop 260ms var(--ios-spring) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ios-view,
+  .animate-ios-sheet,
+  .animate-ios-backdrop,
+  .animate-ios-toast {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

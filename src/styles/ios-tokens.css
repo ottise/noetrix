@@ -1,0 +1,91 @@
+/* ==========================================================================
+   NOETRIX — VISUAL DESIGN SYSTEM V2
+   85% Apple Minimal · 10% Technical Interface · 5% Dark Academia
+   Typography: SF Pro Display · SF Pro Text · SF Mono
+   ========================================================================== */
+
+:root {
+  /* Exact Apple & Technical Font Stacks */
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Warm Archival Light Mode */
+  --os-obsidian: #f4f1ea;
+  --os-graphite: #fbf9f5;
+  --os-stone: #eae5dc;
+  --os-ivory: #23211e;
+  --os-ivory-bright: #141311;
+  --os-ivory-muted: rgba(35, 33, 30, 0.62);
+  --os-ivory-faint: rgba(35, 33, 30, 0.42);
+  --os-border: rgba(35, 33, 30, 0.1);
+  --os-border-hover: rgba(35, 33, 30, 0.22);
+
+  --os-dusty-blue: #4f6486;
+  --os-brass: #8f6f4a;
+  --os-sage: #556c54;
+  --os-crimson: #9e534e;
+
+  --ios-bg: var(--os-obsidian);
+  --ios-surface: var(--os-graphite);
+  --ios-fill: var(--os-stone);
+  --ios-fill-subtle: var(--os-stone);
+  --ios-seg-track: rgba(35, 33, 30, 0.08);
+  --ios-seg-active: #ffffff;
+  --ios-hairline: var(--os-border);
+  --ios-label: var(--os-ivory-bright);
+  --ios-label-secondary: var(--os-ivory-muted);
+  --ios-label-tertiary: var(--os-ivory-faint);
+  --ios-tab-inactive: var(--os-ivory-faint);
+  --ios-blue: var(--os-dusty-blue);
+  --ios-green: var(--os-sage);
+  --ios-red: var(--os-crimson);
+  --ios-nav-bar: rgba(244, 241, 234, 0.86);
+  --ios-tab-bar: rgba(244, 241, 234, 0.88);
+  --ios-sheet-bg: #f4f1ea;
+
+  --ios-radius-card: 16px;
+  --ios-radius-group: 14px;
+  --ios-radius-control: 10px;
+  --ios-radius-sheet: 24px;
+  --ios-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dark {
+  /* Obsidian / Graphite / Stone / Ivory / Dusty Blue / Antique Brass / Sage */
+  --os-obsidian: #101114;
+  --os-graphite: #1b1d22;
+  --os-stone: #292a2d;
+  --os-ivory: #d9d5cb;
+  --os-ivory-bright: #edeae2;
+  --os-ivory-muted: rgba(217, 213, 203, 0.58);
+  --os-ivory-faint: rgba(217, 213, 203, 0.36);
+  --os-border: rgba(217, 213, 203, 0.085);
+  --os-border-hover: rgba(217, 213, 203, 0.18);
+
+  --os-dusty-blue: #a7b6d2;
+  --os-brass: #b99b79;
+  --os-sage: #9baa98;
+  --os-crimson: #c27b76;
+
+  --ios-bg: var(--os-obsidian);
+  --ios-surface: var(--os-graphite);
+  --ios-fill: var(--os-stone);
+  --ios-fill-subtle: var(--os-stone);
+  --ios-seg-track: rgba(41, 42, 45, 0.72);
+  --ios-seg-active: #2e3037;
+  --ios-hairline: var(--os-border);
+  --ios-label: var(--os-ivory-bright);
+  --ios-label-secondary: var(--os-ivory-muted);
+  --ios-label-tertiary: var(--os-ivory-faint);
+  --ios-tab-inactive: var(--os-ivory-faint);
+  --ios-blue: var(--os-brass);
+  --ios-green: var(--os-sage);
+  --ios-red: var(--os-crimson);
+  --ios-nav-bar: rgba(16, 17, 20, 0.84);
+  --ios-tab-bar: rgba(16, 17, 20, 0.88);
+  --ios-sheet-bg: #16181c;
+}
