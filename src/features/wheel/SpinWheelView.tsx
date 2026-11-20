@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createId } from '../../db/database';
 import { incrementTiktokRescue } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import type { WheelDuration, WheelOption } from '../../types';
 import { Card, IOSListGroup, Modal, useToast } from '../../components/ui/Primitives';
 
@@ -68,6 +69,14 @@ function describeSlice(cx: number, cy: number, r: number, startAngle: number, en
 
 export function SpinWheelView() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
+  const DURATION_LABELS: Record<'all' | WheelDuration, string> = {
+    all: t('All', 'Tất cả'),
+    quick: t('5–10m', '5–10p'),
+    medium: t('15–20m', '15–20p'),
+    deep: t('30m+', '30p+'),
+    relax: t('Relax', 'Thư giãn'),
+  };
   const profile = useLiveQuery(() => db.profile.get('main'));
   const allOptions = useLiveQuery(() => db.wheelOptions.toArray()) || [];
 
@@ -180,7 +189,9 @@ export function SpinWheelView() {
       {/* Summary Header Card */}
       <Card className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[12px] text-[var(--ios-label-secondary)]">Số lần tự cứu khỏi TikTok</p>
+          <p className="text-[12px] text-[var(--ios-label-secondary)]">
+            {t('TikTok Rescues Completed', 'Số lần tự cứu khỏi TikTok')}
+          </p>
           <p
             className="text-[28px] leading-[34px] font-bold tabular-nums mt-0.5"
             style={{ color: 'var(--ios-green)' }}
@@ -197,7 +208,7 @@ export function SpinWheelView() {
           className="px-3.5 py-1.5 rounded-full ios-fill text-[13px] font-medium ios-pressable cursor-pointer"
           style={{ color: 'var(--ios-blue)' }}
         >
-          Tùy chỉnh ô
+          {t('Customize Slices', 'Tùy chỉnh ô')}
         </button>
       </Card>
 
@@ -221,7 +232,7 @@ export function SpinWheelView() {
                 color: active ? '#ffffff' : 'var(--ios-label-secondary)',
               }}
             >
-              {f.label}
+              {DURATION_LABELS[f.id]}
             </button>
           );
         })}

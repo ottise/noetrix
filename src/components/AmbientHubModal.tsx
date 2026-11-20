@@ -8,6 +8,7 @@ import {
   exportTodayFocusToNativeIOSCalendar,
   generateAndShareLockScreenWallpaper,
 } from '../lib/ambient';
+import { useLanguage } from '../lib/i18n';
 import type { WidgetSnapshot } from '../types';
 import { Card, IOSListGroup, IOSSwitch, Modal, ProgressBar, useToast } from './ui/Primitives';
 import { MiniDashboard } from '../features/ambient/MiniDashboard';
@@ -25,6 +26,7 @@ export function AmbientHubModal({
   onClose: () => void;
 }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [snapshot, setSnapshot] = useState<WidgetSnapshot | null>(null);
   const [autoLockScreen, setAutoLockScreen] = useState<boolean>(() => isAutoLockScreenEnabled());
 
@@ -73,7 +75,7 @@ export function AmbientHubModal({
         const root = createRoot(mount);
         root.render(<MiniDashboard />);
         pipWin.addEventListener('pagehide', () => root.unmount());
-        showToast('Đã mở cửa sổ nổi Always-on-Top trên Desktop');
+        showToast(t('Opened Always-on-Top mini window on Desktop', 'Đã mở cửa sổ nổi Always-on-Top trên Desktop'));
         return;
       } catch (err) {
         console.warn('Document PiP fallback:', err);
@@ -82,19 +84,31 @@ export function AmbientHubModal({
 
     const url = `${window.location.origin}${window.location.pathname}?mode=mini`;
     window.open(url, 'noetrix-mini-dashboard', 'width=350,height=470,menubar=no,toolbar=no,location=no,status=no');
-    showToast('Đã mở cửa sổ Mini Dashboard riêng');
+    showToast(t('Opened Mini Dashboard window', 'Đã mở cửa sổ Mini Dashboard riêng'));
   };
 
   const handleToggleAutoLockScreen = async () => {
     const next = !autoLockScreen;
     if (next) {
       if (typeof Notification === 'undefined') {
-        showToast('Trình duyệt hiện tại chưa hỗ trợ Web Notification. Trên iPhone hãy chọn Thêm vào MH chính trước.', 'info');
+        showToast(
+          t(
+            'Browser does not support Web Notification yet. On iPhone, Add to Home Screen first.',
+            'Trình duyệt hiện tại chưa hỗ trợ Web Notification. Trên iPhone hãy chọn Thêm vào MH chính trước.'
+          ),
+          'info'
+        );
         return;
       }
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') {
-        showToast('Hãy cho phép quyền Thông báo để NOETRIX tự động hiện thẻ việc trên Màn hình khóa.', 'error');
+        showToast(
+          t(
+            'Please allow Notification permission so NOETRIX can show cards on Lock Screen.',
+            'Hãy cho phép quyền Thông báo để NOETRIX tự động hiện thẻ việc trên Màn hình khóa.'
+          ),
+          'error'
+        );
         return;
       }
     }
@@ -105,21 +119,30 @@ export function AmbientHubModal({
     if (next) {
       const snap = snapshot || (await buildAndPersistWidgetSnapshot());
       await syncAutomaticLockScreenAndBadge(snap, true);
-      showToast('Đã bật tự động hiện 3 việc hôm nay trên Màn hình khóa!');
+      showToast(t('Enabled automatic Lock Screen cards for Today’s Focus!', 'Đã bật tự động hiện 3 việc hôm nay trên Màn hình khóa!'));
     } else {
-      showToast('Đã tắt tự động đẩy ra Màn hình khóa', 'info');
+      showToast(t('Disabled automatic Lock Screen updates', 'Đã tắt tự động đẩy ra Màn hình khóa'), 'info');
     }
   };
 
   const handlePushNowToLockScreen = async () => {
     if (typeof Notification === 'undefined') {
-      showToast('Trên iPhone, hãy cài NOETRIX ra Màn hình chính (Share -> Add to Home Screen) để bật thông báo Màn hình khóa.', 'info');
+      showToast(
+        t(
+          'On iPhone, install NOETRIX to Home Screen (Share -> Add to Home Screen) to enable Lock Screen notifications.',
+          'Trên iPhone, hãy cài NOETRIX ra Màn hình chính (Share -> Add to Home Screen) để bật thông báo Màn hình khóa.'
+        ),
+        'info'
+      );
       return;
     }
     if (Notification.permission !== 'granted') {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') {
-        showToast('Cần cấp quyền Thông báo để hiển thị trên Màn hình khóa.', 'error');
+        showToast(
+          t('Notification permission required to display on Lock Screen.', 'Cần cấp quyền Thông báo để hiển thị trên Màn hình khóa.'),
+          'error'
+        );
         return;
       }
     }
@@ -128,36 +151,41 @@ export function AmbientHubModal({
     const snap = snapshot || (await buildAndPersistWidgetSnapshot());
     const res = await syncAutomaticLockScreenAndBadge(snap, true);
     if (res.notificationSent) {
-      showToast('Đã đẩy thẻ Today’s Focus ra Màn hình khóa & cập nhật Badge Icon!');
+      showToast(t('Pushed Today’s Focus to Lock Screen & updated App Badge!', 'Đã đẩy thẻ Today’s Focus ra Màn hình khóa & cập nhật Badge Icon!'));
     } else {
-      showToast('Đã cập nhật trạng thái Today’s Focus');
+      showToast(t('Updated Today’s Focus status', 'Đã cập nhật trạng thái Today’s Focus'));
     }
   };
 
   const handleSyncNativeCalendar = async () => {
     const snap = snapshot || (await buildAndPersistWidgetSnapshot());
     exportTodayFocusToNativeIOSCalendar(snap);
-    showToast('Đã xuất sang Lịch mặc định — Tự hiện trên Widget Lịch Màn hình khóa iPhone!');
+    showToast(t('Exported to native Calendar — auto-displays on iPhone Lock Screen Widget!', 'Đã xuất sang Lịch mặc định — Tự hiện trên Widget Lịch Màn hình khóa iPhone!'));
   };
 
   const handleGenerateWallpaper = async () => {
     const snap = snapshot || (await buildAndPersistWidgetSnapshot());
     await generateAndShareLockScreenWallpaper(snap);
-    showToast('Đã tạo ảnh Màn hình khóa iPhone hôm nay');
+    showToast(t('Generated today’s Lock Screen wallpaper', 'Đã tạo ảnh Màn hình khóa iPhone hôm nay'));
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Ambient Task Display">
+    <Modal open={open} onClose={onClose} title={t('Ambient Task Display', 'Hiển Thị Ambient Ngoài Màn Hình')}>
       <div className="space-y-6">
         {/* A. Desktop Always-on-Top Mini Dashboard */}
         <IOSListGroup
-          header="A. Cửa sổ nổi tự động trên máy tính (Windows / Mac)"
-          footer="Dùng Document Picture-in-Picture trên Chrome/Edge để cửa sổ luôn nổi trên góc màn hình ngay cả khi bạn đang code trong VS Code."
+          header={t('A. Always-on-Top Desktop Window (Windows / Mac)', 'A. Cửa sổ nổi tự động trên máy tính (Windows / Mac)')}
+          footer={t(
+            'Uses Document Picture-in-Picture on Chrome/Edge to float above other apps while you code.',
+            'Dùng Document Picture-in-Picture trên Chrome/Edge để cửa sổ luôn nổi trên góc màn hình ngay cả khi bạn đang code.'
+          )}
         >
           <div className="p-4 space-y-3">
             <p className="text-[13.5px] text-[var(--ios-label-secondary)] leading-relaxed">
-              Mở bảng mini luôn nổi trên mọi ứng dụng khác, hiện <strong>Today’s Top 3</strong>,{' '}
-              <strong>Next Up</strong> và <strong>Deadline gần nhất</strong> — tick hoàn thành trực tiếp ngoài app.
+              {t(
+                'Open a floating mini board showing Today’s Top 3, Next Up, and nearest deadline — check off tasks without switching windows.',
+                'Mở bảng mini luôn nổi trên mọi ứng dụng khác, hiện Today’s Top 3, Next Up và Deadline gần nhất — tick hoàn thành trực tiếp ngoài app.'
+              )}
             </p>
             <button
               type="button"
@@ -168,7 +196,7 @@ export function AmbientHubModal({
                 color: '#101114',
               }}
             >
-              Mở cửa sổ nổi trên Desktop ↗
+              {t('Open Floating Desktop Window ↗', 'Mở cửa sổ nổi trên Desktop ↗')}
             </button>
           </div>
         </IOSListGroup>
@@ -177,12 +205,12 @@ export function AmbientHubModal({
         {snapshot && (
           <section className="space-y-3">
             <h3 className="ios-section-header px-1">
-              B. Bản xem trước trực tiếp (Màn hình chính & Màn hình khóa)
+              {t('B. Live Preview (Home & Lock Screen)', 'B. Bản xem trước trực tiếp (Màn hình chính & Màn hình khóa)')}
             </h3>
 
             <Card className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] font-semibold">Today’s Focus</span>
+                <span className="text-[15px] font-semibold">{t('Today’s Focus', 'Trọng tâm hôm nay')}</span>
                 <span
                   className="text-[14px] font-semibold tabular-nums"
                   style={{
@@ -205,16 +233,16 @@ export function AmbientHubModal({
               <div className="space-y-1.5">
                 {snapshot.focusTasks.length === 0 ? (
                   <p className="text-[13px] text-[var(--ios-label-secondary)]">
-                    Chưa có task trong Today’s Focus
+                    {t('No tasks in Today’s Focus yet', 'Chưa có task trong Today’s Focus')}
                   </p>
                 ) : (
-                  snapshot.focusTasks.map((t) => (
-                    <div key={t.id} className="flex items-center gap-2 text-[14px]">
-                      <span style={{ color: t.done ? 'var(--os-sage)' : 'var(--os-brass)' }}>
-                        {t.done ? '●' : '○'}
+                  snapshot.focusTasks.map((tk) => (
+                    <div key={tk.id} className="flex items-center gap-2 text-[14px]">
+                      <span style={{ color: tk.done ? 'var(--os-sage)' : 'var(--os-brass)' }}>
+                        {tk.done ? '●' : '○'}
                       </span>
-                      <span className={t.done ? 'line-through text-[var(--ios-label-secondary)] truncate' : 'truncate'}>
-                        {t.title}
+                      <span className={tk.done ? 'line-through text-[var(--ios-label-secondary)] truncate' : 'truncate'}>
+                        {tk.title}
                       </span>
                     </div>
                   ))
@@ -224,8 +252,8 @@ export function AmbientHubModal({
               <div className="pt-2 ios-hairline-t flex items-center justify-between text-[12px] text-[var(--ios-label-secondary)]">
                 <span className="truncate">
                   {snapshot.nextUp
-                    ? `Tiếp theo: ${snapshot.nextUp.time ? `${snapshot.nextUp.time} · ` : ''}${snapshot.nextUp.title}`
-                    : `Còn ${snapshot.remainingCount} việc khác`}
+                    ? `${t('Next:', 'Tiếp theo:')} ${snapshot.nextUp.time ? `${snapshot.nextUp.time} · ` : ''}${snapshot.nextUp.title}`
+                    : t(`${snapshot.remainingCount} other tasks remaining`, `Còn ${snapshot.remainingCount} việc khác`)}
                 </span>
               </div>
             </Card>
@@ -234,24 +262,26 @@ export function AmbientHubModal({
 
         {/* C. ZERO-CODE AUTOMATIC DISPLAY ON IPHONE & LOCK SCREEN */}
         <IOSListGroup
-          header="C. Tự động hiện ra ngoài màn hình (Không cần copy code)"
-          footer="Khi bật công tắc Tự động bên dưới, mỗi khi bạn thêm hoặc hoàn thành 1 việc trong 3 việc hôm nay, NOETRIX sẽ tự động cập nhật thẻ ghim ngay trên Màn hình khóa và số Badge trên icon ứng dụng mà không cần cài Scriptable."
+          header={t('C. Auto Lock Screen & Badge Sync (Zero Code)', 'C. Tự động hiện ra ngoài màn hình (Không cần copy code)')}
+          footer={t(
+            'When enabled, adding or completing any of Today’s 3 Focus tasks auto-updates your Lock Screen card and app icon badge.',
+            'Khi bật công tắc bên dưới, mỗi khi bạn thêm hoặc hoàn thành 1 việc trong 3 việc hôm nay, NOETRIX sẽ tự động cập nhật thẻ ghim ngay trên Màn hình khóa và số Badge trên icon ứng dụng.'
+          )}
         >
           <div className="p-4 space-y-3.5">
-            {/* Option 1: 100% Automatic Live Lock Screen Notification + App Badge */}
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[14.5px] font-medium" style={{ color: 'var(--os-ivory-bright)' }}>
-                  Tự động đẩy ra Màn hình khóa & Badge Icon
+                  {t('Auto Lock Screen Card & App Badge', 'Tự động đẩy ra Màn hình khóa & Badge Icon')}
                 </p>
                 <p className="text-[12px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                  Tự cập nhật thẻ việc trên Màn hình khóa mỗi khi danh sách task thay đổi
+                  {t('Sync Lock Screen card whenever your task list changes', 'Tự cập nhật thẻ việc trên Màn hình khóa mỗi khi danh sách task thay đổi')}
                 </p>
               </div>
               <IOSSwitch
                 checked={autoLockScreen}
                 onChange={handleToggleAutoLockScreen}
-                ariaLabel="Tự động hiện trên Màn hình khóa"
+                ariaLabel={t('Auto show on Lock Screen', 'Tự động hiện trên Màn hình khóa')}
               />
             </div>
 
@@ -264,11 +294,10 @@ export function AmbientHubModal({
                 color: '#101114',
               }}
             >
-              Đẩy thẻ Today’s Focus ra Màn hình khóa ngay
+              {t('Push Today’s Focus to Lock Screen Now', 'Đẩy thẻ Today’s Focus ra Màn hình khóa ngay')}
             </button>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {/* Option 2: 1-Tap Native iOS Calendar Widget Sync */}
               <button
                 type="button"
                 onClick={handleSyncNativeCalendar}
@@ -279,10 +308,9 @@ export function AmbientHubModal({
                   border: '1px solid var(--os-border)',
                 }}
               >
-                Đồng bộ 1 chạm vào Widget Lịch iPhone
+                {t('Sync to iPhone Calendar Widget', 'Đồng bộ 1 chạm vào Widget Lịch iPhone')}
               </button>
 
-              {/* Option 3: 1-Tap Retina Lock Screen Wallpaper */}
               <button
                 type="button"
                 onClick={handleGenerateWallpaper}
@@ -293,7 +321,7 @@ export function AmbientHubModal({
                   border: '1px solid var(--os-border)',
                 }}
               >
-                Tạo ảnh Màn hình khóa hôm nay
+                {t('Generate Lock Screen Wallpaper', 'Tạo ảnh Màn hình khóa hôm nay')}
               </button>
             </div>
           </div>

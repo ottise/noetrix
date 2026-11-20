@@ -328,15 +328,19 @@ export interface Story {
   updatedAt: number;
 }
 
+export type HobbyLogType = 'gym' | 'swimming' | 'drawing' | 'places';
+
 export interface HobbyLog {
   id: string;
-  type: 'drawing' | 'swimming';
+  type: HobbyLogType;
   date: string;
   title: string;
   durationMinutes: number;
   details: string;
   distanceMeters?: number;
   stroke?: string;
+  gymSplit?: string;
+  locationName?: string;
   imageMediaId?: string;
   imageRemoteUrl?: string;
   createdAt: number;

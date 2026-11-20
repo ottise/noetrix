@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createId, getLocalDateStr } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { Modal, useToast } from '../../components/ui/Primitives';
 import { LessonVisualizeCanvas } from './LessonVisualizeCanvas';
@@ -223,6 +224,7 @@ export function CodeLab({
   onSwitchTrack?: (track: LabTrackId) => void;
 }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [codeSubArea, setCodeSubArea] = useState<'programming' | 'os' | 'networking'>('programming');
   const [pendingOsTopicId, setPendingOsTopicId] = useState<string | null>(null);
   const [env, setEnv] = useState<CodeLearningEnvState>(() => loadCodeLearningState());
@@ -535,7 +537,7 @@ export function CodeLab({
                 : '1px solid rgba(217, 213, 203, 0.1)',
           }}
         >
-          Programming Tracks (8-Step Loop)
+          {t('Programming', 'Lập trình')}
         </button>
 
         <button
@@ -544,7 +546,7 @@ export function CodeLab({
             triggerHaptic('selection');
             setCodeSubArea('os');
           }}
-          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors flex items-center gap-2"
+          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors"
           style={{
             backgroundColor: codeSubArea === 'os' ? '#1E2129' : 'transparent',
             color: codeSubArea === 'os' ? 'var(--os-brass)' : 'var(--os-ivory-muted)',
@@ -554,13 +556,7 @@ export function CodeLab({
                 : '1px solid rgba(217, 213, 203, 0.1)',
           }}
         >
-          <span>Operating Systems · Knowledge Base</span>
-          <span
-            className="metadata text-[9.5px] px-1.5 py-0.5 rounded-[4px]"
-            style={{ backgroundColor: 'rgba(155, 170, 152, 0.14)', color: 'var(--os-sage)' }}
-          >
-            12 Modules · 60+ Topics
-          </span>
+          {t('Operating Systems', 'Hệ điều hành')}
         </button>
 
         <button
@@ -569,7 +565,7 @@ export function CodeLab({
             triggerHaptic('selection');
             setCodeSubArea('networking');
           }}
-          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors flex items-center gap-2"
+          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors"
           style={{
             backgroundColor: codeSubArea === 'networking' ? '#1E2129' : 'transparent',
             color: codeSubArea === 'networking' ? 'var(--os-dusty-blue)' : 'var(--os-ivory-muted)',
@@ -579,13 +575,7 @@ export function CodeLab({
                 : '1px solid rgba(217, 213, 203, 0.1)',
           }}
         >
-          <span>Computer Networking · Knowledge Base</span>
-          <span
-            className="metadata text-[9.5px] px-1.5 py-0.5 rounded-[4px]"
-            style={{ backgroundColor: 'rgba(167, 182, 210, 0.14)', color: 'var(--os-dusty-blue)' }}
-          >
-            14 Modules · 70+ Topics
-          </span>
+          {t('Computer Networking', 'Mạng máy tính')}
         </button>
       </div>
     </div>
@@ -622,188 +612,119 @@ export function CodeLab({
   // RENDER LEVEL 1 & 2: PROGRAMMING DIRECTORY (Overview + Subjects)
   // ===========================================================================
   if (env.activeLevel === 'directory') {
-    const exposedCount = env.topics.filter((t) => t.understanding === 'exposed').length;
-    const understoodCount = env.topics.filter((t) => t.understanding === 'understood').length;
-    const appliedCount = env.topics.filter((t) => t.understanding === 'applied').length;
+    const exposedCount = env.topics.filter((tp) => tp.understanding === 'exposed').length;
+    const understoodCount = env.topics.filter((tp) => tp.understanding === 'understood').length;
+    const appliedCount = env.topics.filter((tp) => tp.understanding === 'applied').length;
     const activeModMeta = LESSON_MODULES.find((m) => m.id === activeTopic.lastStudiedModule) || LESSON_MODULES[0];
 
     return (
-      <div className="space-y-10">
+      <div className="space-y-6">
         {areaSwitcherBar}
-        {/* SPOTLIGHT: RESUME CURRENT LESSON WORKSPACE */}
-        <section
+
+        {/* TOP STUDY SESSION BANNER — Unified Learning Continuum & Metrics Capsule */}
+        <header
           aria-label="Resume Last Learning Session"
-          className="rounded-[14px] overflow-hidden"
-          style={{
-            backgroundColor: 'var(--os-graphite)',
-            border: '1px solid var(--os-border)',
-          }}
+          className="rounded-xl border border-[#1f2530] bg-[#11141b]/95 backdrop-blur-md px-5 py-4"
         >
-          <div
-            className="h-[1px] w-full"
-            style={{
-              background:
-                'linear-gradient(90deg, rgba(185,155,121,0.6) 0%, rgba(167,182,210,0.22) 55%, transparent 100%)',
-            }}
-          />
-          <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-            <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between gap-5">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    ● RESUME LESSON WORKSPACE · {activeModMeta.num} {activeModMeta.label.toUpperCase()}
-                  </span>
-                  <span className="metadata text-[10.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    TOUCHED {formatRelTime(activeTopic.updatedAt).toUpperCase()}
-                  </span>
-                </div>
-
-                <h2 className="font-editorial-vi text-[26px] sm:text-[32px] leading-[1.15]" style={{ color: 'var(--os-ivory-bright)' }}>
-                  {activeTopic.title}
-                </h2>
-                <p className="text-[14px] leading-relaxed max-w-[62ch]" style={{ color: 'var(--os-ivory-muted)' }}>
-                  {activeTopic.subtitle}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[var(--os-border)]">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => openLesson(activeTopic)}
-                    className="px-4 py-2 rounded-[9px] text-[13px] font-medium cursor-pointer transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: 'var(--os-ivory-bright)', color: 'var(--os-obsidian)' }}
-                  >
-                    Vào học tiếp ({activeModMeta.num} {activeModMeta.label}) ↗
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openLesson(activeTopic, 'explain')}
-                    className="px-3.5 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer hover:bg-[var(--os-stone)]"
-                    style={{
-                      color: 'var(--os-ivory)',
-                      border: '1px solid var(--os-border)',
-                    }}
-                  >
-                    Tự giải thích lại (03 Explain)
-                  </button>
-                </div>
-
-                <span
-                  className="metadata text-[10.5px] uppercase tracking-[0.1em]"
-                  style={{ color: UNDERSTANDING_META[activeTopic.understanding].color }}
-                >
-                  {UNDERSTANDING_META[activeTopic.understanding].label} · {UNDERSTANDING_META[activeTopic.understanding].vi}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => openLesson(activeTopic)}
+                className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#f0f2f5] hover:bg-white text-[#0d0f14] font-semibold text-[13.5px] transition-all shadow-sm cursor-pointer"
+              >
+                <span>
+                  {t(
+                    `Resume Lesson (${activeModMeta.num} ${activeModMeta.label})`,
+                    `Vào học tiếp (${activeModMeta.num} ${activeModMeta.label})`
+                  )}
                 </span>
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 relative min-h-[180px] lg:border-l border-[var(--os-border)] p-6 flex flex-col justify-between overflow-hidden">
-              <img
-                src="/art/room-lab.jpg"
-                alt="Code Learning Sanctuary"
-                className="absolute inset-0 w-full h-full object-cover opacity-75"
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    'linear-gradient(180deg, rgba(16,17,20,0.68) 0%, rgba(16,17,20,0.4) 45%, rgba(16,17,20,0.92) 100%)',
-                }}
-              />
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'rgba(237,234,226,0.75)' }}>
-                  MASTERY CALIBRATION
-                </span>
-              </div>
-              <div className="relative z-10 space-y-2">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="font-editorial text-[22px]" style={{ color: 'var(--os-dusty-blue)' }}>{exposedCount}</p>
-                    <p className="metadata text-[9.5px] uppercase" style={{ color: 'rgba(237,234,226,0.65)' }}>Exposed</p>
-                  </div>
-                  <div>
-                    <p className="font-editorial text-[22px]" style={{ color: 'var(--os-brass)' }}>{understoodCount}</p>
-                    <p className="metadata text-[9.5px] uppercase" style={{ color: 'rgba(237,234,226,0.65)' }}>Understood</p>
-                  </div>
-                  <div>
-                    <p className="font-editorial text-[22px]" style={{ color: 'var(--os-sage)' }}>{appliedCount}</p>
-                    <p className="metadata text-[9.5px] uppercase" style={{ color: 'rgba(237,234,226,0.65)' }}>Applied</p>
-                  </div>
-                </div>
-                <p className="text-[11.5px] text-center pt-1" style={{ color: 'rgba(237,234,226,0.72)' }}>
-                  Learn → Explain → Visualize → Practice → Verify
-                </p>
-              </div>
+                <span className="text-xs metadata text-[#0d0f14]">↗</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openLesson(activeTopic, 'explain')}
+                className="inline-flex items-center px-3.5 py-2.5 rounded-lg bg-[#12161f] hover:bg-[#181d28] border border-[#272e3d] hover:border-[#384152] text-[#cbd5e1] hover:text-white font-medium text-[13.5px] transition-colors cursor-pointer"
+              >
+                {t('Self-Explain (03 Explain)', 'Tự giải thích (03 Explain)')}
+              </button>
             </div>
           </div>
-        </section>
+        </header>
 
-        {/* LEVEL 2: SUBJECTS DIRECTORY (Java, C#, Web Core, AI Workflow, SQL) */}
+        {/* LEVEL 2: SUBJECTS DIRECTORY (Java, C#, Web Core, AI Workflow, SQL, OS, Networking) */}
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="editorial-eyebrow">LEVEL 02 // PROGRAMMING SUBJECT DIRECTORY</p>
-              <p className="text-[13px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
-                Chọn một môn học để mở chương trình đào tạo và Lesson Workspace 8 khu vực.
-              </p>
+          <div className="flex items-center justify-between gap-4 pb-1">
+            <div className="metadata text-[12.5px] tracking-wider text-[#cba86a] uppercase font-semibold">
+              {t('PROGRAMMING SUBJECTS', 'DANH MỤC MÔN HỌC LẬP TRÌNH')}
             </div>
             <button
               type="button"
               onClick={() => setNewSubjectOpen(true)}
-              className="metadata text-[11px] uppercase tracking-[0.1em] hover:underline cursor-pointer"
-              style={{ color: 'var(--os-brass)' }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#2b3343] hover:border-[#cba86a]/60 bg-[#12161f] hover:bg-[#181d28] text-[#cba86a] hover:text-[#faebd7] metadata text-[12px] uppercase tracking-wider font-semibold transition-all cursor-pointer"
             >
-              + New Subject
+              <span className="text-base leading-none font-bold">+</span>
+              <span>{t('NEW SUBJECT', 'THÊM MÔN HỌC')}</span>
             </button>
           </div>
 
-          <div className="border-y divide-y divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
+          <div className="space-y-3">
             {env.subjects.map((subj) => {
-              const list = env.topics.filter((t) => t.subjectId === subj.id);
-              const applied = list.filter((t) => t.understanding === 'applied').length;
-              const understood = list.filter((t) => t.understanding === 'understood').length;
+              const list = env.topics.filter((tp) => tp.subjectId === subj.id);
+              const applied = list.filter((tp) => tp.understanding === 'applied').length;
+              const understood = list.filter((tp) => tp.understanding === 'understood').length;
               return (
                 <button
                   key={subj.id}
                   type="button"
                   onClick={() => openSubject(subj.id)}
-                  className="w-full py-4 sm:py-5 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left transition-colors hover:bg-[rgba(217,213,203,0.025)] cursor-pointer group"
+                  className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
                 >
-                  <div className="flex items-start gap-4 min-w-0">
-                    <span className="metadata text-[11px] shrink-0 mt-1" style={{ color: subj.accent }}>
-                      {subj.code}
-                    </span>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="editorial-h3 group-hover:text-white transition-colors">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center flex-wrap gap-3">
+                        <span className="metadata text-[12px] font-bold text-[#cba86a] tracking-wider">
+                          {subj.code}
+                        </span>
+                        <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
                           {subj.title}
                         </h3>
-                        <span className="metadata text-[10.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                          {list.length} topics
+                        <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
+                          {list.length} {t('topics', 'chủ đề')}
                         </span>
                       </div>
-                      <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
+                      <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
                         {subj.subtitle}
                       </p>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-4 shrink-0 pl-14 sm:pl-0">
-                    <div className="flex items-center gap-2 metadata text-[10.5px]">
-                      {understood > 0 && (
-                        <span style={{ color: 'var(--os-brass)' }}>{understood} Understood</span>
-                      )}
-                      {applied > 0 && (
-                        <span style={{ color: 'var(--os-sage)' }}>{applied} Applied</span>
-                      )}
-                      {understood === 0 && applied === 0 && (
-                        <span style={{ color: 'var(--os-ivory-faint)' }}>Exposed only</span>
-                      )}
+                    <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
+                      <div className="flex items-center gap-3 metadata text-[12.5px]">
+                        {understood > 0 && (
+                          <span className="inline-flex items-center text-[#cba86a] font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-[#cba86a] mr-2" />
+                            {understood} {t('Understood', 'Đã hiểu')}
+                          </span>
+                        )}
+                        {applied > 0 && (
+                          <span className="inline-flex items-center text-emerald-400 font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 shadow-[0_0_8px_#34d399]" />
+                            {applied} {t('Applied', 'Thực hành')}
+                          </span>
+                        )}
+                        {understood === 0 && applied === 0 && (
+                          <span className="inline-flex items-center text-[#9ca3af] font-medium">
+                            <span className="w-2 h-2 rounded-full bg-[#64748b] mr-2" />
+                            {t('Exposed only', 'Mới tiếp xúc')}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#cba86a] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
+                        <span>{t('Open Subject', 'Mở môn học')}</span>
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      </span>
                     </div>
-                    <span className="metadata text-[12px] transition-transform group-hover:translate-x-1" style={{ color: 'var(--os-brass)' }}>
-                      Open Subject →
-                    </span>
                   </div>
                 </button>
               );
@@ -816,34 +737,33 @@ export function CodeLab({
                 triggerHaptic('selection');
                 setCodeSubArea('os');
               }}
-              className="w-full py-4 sm:py-5 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left transition-colors hover:bg-[rgba(217,213,203,0.025)] cursor-pointer group"
+              className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
             >
-              <div className="flex items-start gap-4 min-w-0">
-                <span className="metadata text-[11px] shrink-0 mt-1" style={{ color: 'var(--os-sage)' }}>
-                  CS.OS
-                </span>
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="editorial-h3 group-hover:text-white transition-colors">
-                      Operating Systems — Knowledge Base
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center flex-wrap gap-3">
+                    <span className="metadata text-[12px] font-bold text-emerald-400 tracking-wider">
+                      CS.OS
+                    </span>
+                    <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
+                      {t('Operating Systems — Knowledge Base', 'Hệ điều hành — Knowledge Base')}
                     </h3>
-                    <span className="metadata text-[10.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      12 modules · 60+ topics
+                    <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
+                      {t('12 modules · 60+ topics', '12 chương · 60+ chủ đề')}
                     </span>
                   </div>
-                  <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                    Kernel, Process, Threads, Scheduling, Synchronization, Memory, File Systems, I/O, Storage, Security & Virtualization — cross-linked knowledge base.
+                  <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
+                    Kernel, Process, Threads, Scheduling, Synchronization, Memory, File Systems, I/O, Storage, Security &amp; Virtualization.
                   </p>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-4 shrink-0 pl-14 sm:pl-0">
-                <span className="metadata text-[10.5px]" style={{ color: 'var(--os-dusty-blue)' }}>
-                  Knowledge Graph · Flashcards
-                </span>
-                <span className="metadata text-[12px] transition-transform group-hover:translate-x-1" style={{ color: 'var(--os-brass)' }}>
-                  Open Knowledge Base →
-                </span>
+                <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
+                  <span className="metadata text-[12px] text-[#a7b6d2]">Knowledge Graph · Flashcards</span>
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#cba86a] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
+                    <span>{t('Open OS KB', 'Mở kho OS')}</span>
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </span>
+                </div>
               </div>
             </button>
 
@@ -854,122 +774,104 @@ export function CodeLab({
                 triggerHaptic('selection');
                 setCodeSubArea('networking');
               }}
-              className="w-full py-4 sm:py-5 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left transition-colors hover:bg-[rgba(217,213,203,0.025)] cursor-pointer group"
+              className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
             >
-              <div className="flex items-start gap-4 min-w-0">
-                <span className="metadata text-[11px] shrink-0 mt-1" style={{ color: 'var(--os-dusty-blue)' }}>
-                  CS.NET
-                </span>
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="editorial-h3 group-hover:text-white transition-colors">
-                      Computer Networking — Knowledge Base
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center flex-wrap gap-3">
+                    <span className="metadata text-[12px] font-bold text-[#a7b6d2] tracking-wider">
+                      CS.NET
+                    </span>
+                    <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
+                      {t('Computer Networking — Knowledge Base', 'Mạng máy tính — Knowledge Base')}
                     </h3>
-                    <span className="metadata text-[10.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      14 modules · 70+ topics
+                    <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
+                      {t('14 modules · 70+ topics', '14 chương · 70+ chủ đề')}
                     </span>
                   </div>
-                  <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                    OSI/TCP-IP, Subnetting, Routing, TCP/UDP/QUIC, DNS, HTTP/3, Security, Sockets, Cloud VPC & Kubernetes Networking + Packet & Topology Tools.
+                  <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
+                    OSI/TCP-IP, Subnetting, Routing, TCP/UDP/QUIC, DNS, HTTP/3, Security, Sockets, Cloud VPC &amp; Kubernetes Networking.
                   </p>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-4 shrink-0 pl-14 sm:pl-0">
-                <span className="metadata text-[10.5px]" style={{ color: 'var(--os-sage)' }}>
-                  Packet Lab · Topology Sim
-                </span>
-                <span className="metadata text-[12px] transition-transform group-hover:translate-x-1" style={{ color: 'var(--os-dusty-blue)' }}>
-                  Open Knowledge Base →
-                </span>
+                <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
+                  <span className="metadata text-[12px] text-emerald-400">Packet Lab · Topology Sim</span>
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#a7b6d2] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
+                    <span>{t('Open Network KB', 'Mở kho Mạng')}</span>
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </span>
+                </div>
               </div>
             </button>
           </div>
         </section>
 
-        {/* SPACED REPETITION DUE & OTHER LAB DISCIPLINES */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2">
-          <div className="lg:col-span-7 space-y-3">
-            <p className="editorial-eyebrow">REVIEW & RETRIEVAL QUEUE</p>
-            {dueReviewTopics.length === 0 ? (
-              <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                Không có bài nào đến hạn ôn tập hôm nay. Hãy tiếp tục thực hành ở Lesson Workspace.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--os-border)] border-t border-[var(--os-border)]">
-                {dueReviewTopics.slice(0, 4).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => openLesson(t, 'review')}
-                    className="w-full py-3 flex items-center justify-between gap-3 text-left hover:bg-[rgba(217,213,203,0.02)] cursor-pointer group"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[13.5px] font-medium truncate" style={{ color: 'var(--os-ivory-bright)' }}>
-                        {t.title}
-                      </p>
-                      <p className="text-[11.5px] truncate" style={{ color: 'var(--os-ivory-faint)' }}>
-                        Due {t.review.nextReviewDate} · Click để kiểm tra lại từ trí nhớ
-                      </p>
-                    </div>
-                    <span className="metadata text-[11px] shrink-0" style={{ color: 'var(--os-brass)' }}>
-                      Review →
-                    </span>
-                  </button>
-                ))}
+        {/* BOTTOM QUEUE INDICATORS & INTERACTIVE DRAWER */}
+        <footer className="pt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-[#0f1218] border border-[#1e2430]">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-[#cba86a]" />
+                <span className="metadata text-[12px] tracking-wider text-[#cbd5e1] uppercase font-semibold">
+                  {t('REVIEW & RETRIEVAL QUEUE', 'HÀNG ĐỢI ÔN TẬP & TRUY XUẤT')}
+                </span>
               </div>
-            )}
+              <span className="metadata text-[12px] text-[#9ca3af] bg-[#1a1f2a] px-3 py-1 rounded-md border border-[#262f3f]">
+                {dueReviewTopics.length} {t('due', 'đến hạn')}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-xl bg-[#0f1218] border border-[#1e2430]">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="metadata text-[12px] tracking-wider text-[#cbd5e1] uppercase font-semibold">
+                  {t('PARALLEL DISCIPLINES', 'CHUYÊN ĐỀ SONG SONG')}
+                </span>
+              </div>
+              <span className="metadata text-[12px] text-[#9ca3af] bg-[#1a1f2a] px-3 py-1 rounded-md border border-[#262f3f]">
+                {t('3 active', '3 đang chạy')}
+              </span>
+            </div>
           </div>
 
-          <div className="lg:col-span-5 lg:pl-7 lg:border-l border-[var(--os-border)] space-y-3">
-            <p className="editorial-eyebrow">PARALLEL DISCIPLINES</p>
-            <div className="space-y-1.5">
-              {(
-                [
-                  { track: 'leetcode', title: 'LeetCode 100 · Java', desc: '90-Day Algorithmic Problem Solving Roadmap' },
-                  { track: 'chess', title: 'Chess · Think Ahead', desc: 'Tactical Calculation & Positional Evaluation' },
-                  { track: 'sudoku', title: 'Sudoku · Prove First', desc: 'Pure Deductive Logic — Zero Guessing' },
-                ] as const
-              ).map((item) => (
+          {dueReviewTopics.length > 0 && (
+            <div className="rounded-xl bg-[#0f1218] border border-[#1e2430] divide-y divide-[#1b2029]">
+              {dueReviewTopics.slice(0, 4).map((topic) => (
                 <button
-                  key={item.track}
+                  key={topic.id}
                   type="button"
-                  onClick={() => onSwitchTrack?.(item.track)}
-                  className="w-full py-2.5 flex items-center justify-between text-left hover:text-white cursor-pointer group"
+                  onClick={() => openLesson(topic, 'review')}
+                  className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[#161a23] cursor-pointer"
                 >
-                  <div>
-                    <p className="text-[13px] font-medium" style={{ color: 'var(--os-ivory)' }}>
-                      {item.title}
-                    </p>
-                    <p className="text-[11.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      {item.desc}
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] font-medium truncate text-[#e1e4ea]">{topic.title}</p>
+                    <p className="text-[11.5px] truncate text-[#6b7280]">
+                      {t('Due', 'Đến hạn')} {topic.review.nextReviewDate} · {t('Click for retrieval practice', 'Nhấn để tự kiểm tra từ trí nhớ')}
                     </p>
                   </div>
-                  <span className="metadata text-[11px] group-hover:translate-x-0.5 transition-transform" style={{ color: 'var(--os-dusty-blue)' }}>
-                    ↗
-                  </span>
+                  <span className="metadata text-[11px] shrink-0 text-[#cba86a]">{t('Review →', 'Ôn tập →')}</span>
                 </button>
               ))}
             </div>
-          </div>
-        </section>
+          )}
+        </footer>
 
         {/* MODAL: NEW SUBJECT */}
-        <Modal open={newSubjectOpen} onClose={() => setNewSubjectOpen(false)} title="Create Programming Subject">
+        <Modal open={newSubjectOpen} onClose={() => setNewSubjectOpen(false)} title={t('Create Programming Subject', 'Tạo Môn Học Lập Trình')}>
           <form onSubmit={handleAddSubject} className="space-y-3">
             <input
               type="text"
               required
               value={sTitle}
               onChange={(e) => setSTitle(e.target.value)}
-              placeholder="Tên môn học (vd: System Design, Spring Boot, Docker)..."
+              placeholder={t('Subject name (e.g. System Design, Spring Boot, Docker)...', 'Tên môn học (vd: System Design, Spring Boot, Docker)...')}
               className="w-full px-3.5 py-2.5 rounded-[10px] ios-fill text-[14.5px]"
             />
             <input
               type="text"
               value={sSub}
               onChange={(e) => setSSub(e.target.value)}
-              placeholder="Trọng tâm nghiên cứu (vd: Caching · Message Queue · Load Balancing)..."
+              placeholder={t('Research focus (e.g. Caching · Message Queue · Load Balancing)...', 'Trọng tâm nghiên cứu (vd: Caching · Message Queue · Load Balancing)...')}
               className="w-full px-3.5 py-2.5 rounded-[10px] ios-fill text-[13.5px]"
             />
             <button
@@ -977,7 +879,7 @@ export function CodeLab({
               className="w-full py-2.5 rounded-[10px] text-[13.5px] font-semibold cursor-pointer"
               style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
             >
-              Tạo môn học mới
+              {t('Create New Subject', 'Tạo môn học mới')}
             </button>
           </form>
         </Modal>
@@ -1023,14 +925,11 @@ export function CodeLab({
         </div>
 
         {/* Subject Header */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: activeSubject.accent }}>
-            {activeSubject.code} · SUBJECT WORKSPACE
+            {activeSubject.code}
           </span>
           <h2 className="editorial-h1">{activeSubject.title}</h2>
-          <p className="text-[14px]" style={{ color: 'var(--os-ivory-muted)' }}>
-            {activeSubject.subtitle} — Chọn một chủ đề để bước vào không gian học 8 bước chuyên sâu.
-          </p>
         </div>
 
         {/* Curriculum List grouped by Module */}

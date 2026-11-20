@@ -1,103 +1,48 @@
-import { db, getLocalDateStr, addDaysStr } from './database';
+import { db } from './database';
 import type {
   ProfileState,
-  TaskItem,
   CodeTopic,
   ChessModule,
   SudokuTechnique,
   WheelOption,
-  WorkflowLecture,
-  PsychologyPost,
   Book,
   Story,
 } from '../types';
 
-export async function ensureSeedTasks(): Promise<void> {
-  const taskCount = await db.tasks.count();
-  if (taskCount > 0) return;
-  const now = Date.now();
-  const today = getLocalDateStr();
+const LEGACY_MOCK_TASK_IDS = [
+  'tsk_starter_1',
+  'tsk_starter_2',
+  'tsk_starter_3',
+  'tsk_starter_4',
+  'tsk_starter_5',
+];
 
-  const starterTasks: TaskItem[] = [
-    {
-      id: 'tsk_starter_1',
-      title: 'Ôn Java Collections & HashMap internals',
-      description: 'Hiểu cơ chế hash bucket, load factor và resize trong Java.',
-      category: 'learning',
-      project: 'Java Core',
-      priority: 'high',
-      status: 'in_progress',
-      isTodayFocus: true,
-      scheduledDate: today,
-      durationMinutes: 45,
-      recurrence: 'none',
-      createdAt: now - 3000,
-      updatedAt: now - 3000,
-    },
-    {
-      id: 'tsk_starter_2',
-      title: 'Luyện 1 bài LeetCode — Sliding Window / HashMap',
-      description: 'Tự suy luận 25 phút trước khi xem lời giải.',
-      category: 'learning',
-      project: 'LeetCode',
-      priority: 'high',
-      status: 'planned',
-      isTodayFocus: true,
-      scheduledDate: today,
-      durationMinutes: 30,
-      recurrence: 'none',
-      createdAt: now - 2000,
-      updatedAt: now - 2000,
-    },
-    {
-      id: 'tsk_starter_3',
-      title: 'Nghiên cứu nguồn cho bài IG Tâm lý tuần này',
-      description: 'Kiểm chứng thí nghiệm gốc và ghi trích dẫn chuẩn xác.',
-      category: 'publishing',
-      project: 'IG Psychology',
-      priority: 'medium',
-      status: 'planned',
-      isTodayFocus: true,
-      scheduledDate: today,
-      deadline: addDaysStr(today, 5),
-      durationMinutes: 35,
-      recurrence: 'weekly',
-      createdAt: now - 1000,
-      updatedAt: now - 1000,
-    },
-    {
-      id: 'tsk_starter_4',
-      title: 'Buổi tập Gym — Push / Pull',
-      description: 'Tập trung form chuẩn và khởi động kỹ.',
-      category: 'health',
-      project: 'Fitness',
-      priority: 'high',
-      status: 'planned',
-      isTodayFocus: false,
-      scheduledDate: today,
-      scheduledTime: '17:30',
-      durationMinutes: 45,
-      recurrence: 'daily',
-      createdAt: now - 500,
-      updatedAt: now - 500,
-    },
-    {
-      id: 'tsk_starter_5',
-      title: 'Viết thêm 200 chữ cho Chương 1 dự án truyện',
-      description: 'Mở Focus Mode viết không chỉnh sửa.',
-      category: 'creative',
-      project: 'Story Studio',
-      priority: 'low',
-      status: 'inbox',
-      isTodayFocus: false,
-      durationMinutes: 20,
-      recurrence: 'none',
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
+const LEGACY_MOCK_WORKFLOW_IDS = [
+  'wf_starter_1',
+  'wf_mwoqh7zd_0vwaop4',
+  'wf_mwot1l9m_tyr3w5b',
+];
 
-  await db.tasks.bulkPut(starterTasks);
+const LEGACY_MOCK_PSYCH_IDS = [
+  'psy_starter_1',
+  'psy_res_001',
+];
+
+export async function purgeLegacyMockSchedule(): Promise<void> {
+  await db.tasks.bulkDelete(LEGACY_MOCK_TASK_IDS);
+  await db.workflowLectures.bulkDelete(LEGACY_MOCK_WORKFLOW_IDS);
+  await db.psychologyPosts.bulkDelete(LEGACY_MOCK_PSYCH_IDS);
+  const excalidrawLogs = await db.hobbyLogs
+    .filter(
+      (l) =>
+        l.id === 'hb_mwoqjkee_30ht9ao' ||
+        l.title.startsWith('Sơ đồ / Bản vẽ:') ||
+        l.details.includes('Excalidraw Canvas')
+    )
+    .primaryKeys();
+  if (excalidrawLogs.length > 0) {
+    await db.hobbyLogs.bulkDelete(excalidrawLogs);
+  }
 }
 
 function buildSudokuCurriculum(now: number): SudokuTechnique[] {
@@ -1312,8 +1257,8 @@ export async function ensureSeedData(): Promise<void> {
         updatedAt: Date.now(),
       });
     }
-    // Ensure v2 starter tasks & full Sudoku + Chess curricula exist when upgrading
-    await ensureSeedTasks();
+    // Purge legacy mock schedule tasks &Ensure full Sudoku + Chess curricula exist
+    await purgeLegacyMockSchedule();
     await ensureFullSudokuCurriculum();
     await ensureFullChessCurriculum();
     // Normalize any legacy ASCII arrows '->' to clean typographic '→'
@@ -1336,7 +1281,6 @@ export async function ensureSeedData(): Promise<void> {
   }
 
   const now = Date.now();
-  const today = getLocalDateStr();
 
   const profile: ProfileState = {
     id: 'main',
@@ -1379,45 +1323,6 @@ export async function ensureSeedData(): Promise<void> {
   const chessModules: ChessModule[] = buildChessCurriculum(now);
 
   const sudokuTechniques: SudokuTechnique[] = buildSudokuCurriculum(now);
-
-  const starterWorkflow: WorkflowLecture = {
-    id: 'wf_starter_1',
-    title: 'Bài mẫu #01: Biến ghi chú thô thành tài liệu học có cấu trúc bằng AI Workflow',
-    tags: ['AI Workflow', 'Automation', 'Prompting'],
-    status: 'writing',
-    dueDate: addDaysStr(today, 3),
-    checklist: {
-      studied: true,
-      docVi: true,
-      docEn: false,
-      images: false,
-      audio: false,
-    },
-    docVi: `## Mục tiêu Workflow\nTự động hóa quy trình biến ghi chú rời rạc thành tài liệu học tập gồm: Tóm tắt cốt lõi, Sơ đồ luồng, và 3 câu hỏi tự kiểm tra.\n\n## Các bước xử lý\n1. **Trigger**: Nhận nội dung ghi chú mới.\n2. **Extract & Structure**: AI tách khái niệm chính và ví dụ thực tế.\n3. **Quality Gate**: Kiểm tra lại đầu ra có đủ ví dụ cụ thể chưa.\n4. **Output**: Lưu vào hệ thống bài giảng.`,
-    docEn: `## Workflow Objective\nAutomate turning raw study notes into a structured knowledge brief: Core concepts, visual flow, and 3 self-test questions.\n\n## Pipeline Steps\n1. **Trigger**: Capture raw note input.\n2. **Extract & Structure**: Extract mental models and concrete examples.\n3. **Quality Gate**: Validate output completeness.\n4. **Output**: Save into personal lecture vault.`,
-    notes: 'Ghi chú mẫu: Bạn có thể bấm nút Thêm ảnh sơ đồ minh họa và Ghi âm bài giảng trực tiếp ngay bên dưới!',
-    images: [],
-    audios: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const starterPsych: PsychologyPost = {
-    id: 'psy_starter_1',
-    title: 'Vì sao ta cứ mua sách về chất đống dù biết mình chưa đọc? (Tsundoku & Hiệu ứng sở hữu)',
-    behaviorConcept: 'Endowment Effect & Anti-library',
-    hook: 'Mua 1 cuốn sách tạo cảm giác bộ não vừa thông minh hơn — dù bạn chưa hề lật trang đầu tiên.',
-    status: 'raw',
-    dueDate: addDaysStr(today, 7),
-    rawVi: 'Mình nhận ra mỗi lần bấm mua sách online, não tiết dopamine như thể mình ĐÃ đọc xong cuốn đó rồi. Nhưng khi sách về đến nhà, việc đọc lại đòi hỏi năng lượng tập trung thật sự, thế là sách nằm yên trên kệ...',
-    researchNotes: '- Tìm hiểu khái niệm Tsundoku (Nhật Bản)\n- Tham khảo Nassim Taleb về "Anti-library" (Thư viện ngược)\n- Đối chiếu cơ chế phần thưởng tức thì (Instant Gratification) vs Cognitive Friction khi bắt đầu đọc.',
-    sources: '1. Nassim Nicholas Taleb — The Black Swan (Anti-library)\n2. Nghiên cứu về Dopamine anticipation (Wolfram Schultz)',
-    factChecked: false,
-    englishRewrite: '',
-    reflection: '',
-    createdAt: now,
-    updatedAt: now,
-  };
 
   const starterBook: Book = {
     id: 'bk_starter_1',
@@ -1501,11 +1406,9 @@ export async function ensureSeedData(): Promise<void> {
       await db.codeTopics.bulkPut(codeTopics);
       await db.chessModules.bulkPut(chessModules);
       await db.sudokuTechniques.bulkPut(sudokuTechniques);
-      await db.workflowLectures.put(starterWorkflow);
-      await db.psychologyPosts.put(starterPsych);
       await db.books.put(starterBook);
       await db.stories.put(starterStory);
     }
   );
-  await ensureSeedTasks();
+  await purgeLegacyMockSchedule();
 }

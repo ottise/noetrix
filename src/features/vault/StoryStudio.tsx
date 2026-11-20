@@ -3,12 +3,12 @@ import { createId } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { Modal, useToast } from '../../components/ui/Primitives';
+import { ScreenplayEditorStage } from './ScreenplayEditorStage';
 import {
   buildInitialScreenplayState,
-  buildProjectChimera,
+  buildStarterProject,
   NOTE_CATEGORY_META,
   type CharacterDynamic,
-  type DialogueLine,
   type ScreenplayCharacter,
   type ScreenplayLocation,
   type ScreenplayModuleId,
@@ -91,14 +91,17 @@ function loadScreenplayState(): ScreenplayStudioState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<ScreenplayStudioState>;
       if (Array.isArray(parsed.projects) && parsed.projects.length > 0) {
-        // Ensure Project Chimera exists in the list for the user
-        const hasChimera = parsed.projects.some((p) => p.id === 'proj_chimera');
-        const chimera = buildProjectChimera(Date.now());
-        const projects = hasChimera ? parsed.projects : [chimera, ...parsed.projects];
-
+        const userProjects = parsed.projects.filter(
+          (p) => p.id !== 'proj_chimera' && p.id !== 'proj_01'
+        );
+        const projects =
+          userProjects.length > 0 ? userProjects : [buildStarterProject(Date.now())];
+        const activeId = projects.some((p) => p.id === parsed.activeProjectId)
+          ? (parsed.activeProjectId as string)
+          : projects[0].id;
         return {
-          activeProjectId: parsed.activeProjectId || 'proj_chimera',
-          activeModule: parsed.activeModule || 'characters',
+          activeProjectId: activeId,
+          activeModule: parsed.activeModule || 'screenplay',
           projects,
         };
       }
@@ -144,6 +147,7 @@ export function StoryStudio() {
   const [selectedSceneId, setSelectedSceneId] = useState<string>(
     () => project.lastOpenedSceneId || project.scenes[0]?.id || ''
   );
+  const [screenplayFocusMode, setScreenplayFocusMode] = useState(false);
 
   // Character filtering & view toggles
   const [castSearch, setCastSearch] = useState('');
@@ -583,17 +587,6 @@ ${project.scenes.map((sc) => `
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10b981' }} />
             Cloud Synced
           </div>
-
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-[11px] font-bold"
-            style={{
-              backgroundColor: '#292A2D',
-              color: '#B99B79',
-              border: '1px solid rgba(185, 155, 121, 0.4)',
-            }}
-          >
-            QL
-          </div>
         </div>
       </header>
 
@@ -604,115 +597,204 @@ ${project.scenes.map((sc) => `
           ================================================================ */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
         {/* ==============================================================
-            LEFT STUDIO SIDEBAR (2.5 cols / ~230px): 4 Technical Groups
+            LEFT STUDIO SIDEBAR (2.5 cols / ~240px): Project Dossier + Tree + Scene Index
             ============================================================== */}
-        <aside
-          className="lg:col-span-2 p-4 space-y-6 flex flex-col justify-between"
-          style={{
-            backgroundColor: '#121418',
-            borderRight: '1px solid rgba(217, 213, 203, 0.08)',
-          }}
-        >
-          <div className="space-y-6">
-            {/* Project Workspace Card */}
-            <div
-              className="p-3 rounded-[10px] space-y-1"
-              style={{
-                backgroundColor: '#181A20',
-                border: '1px solid rgba(217, 213, 203, 0.08)',
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="metadata text-[9.5px] uppercase tracking-[0.12em]" style={{ color: '#B99B79' }}>
-                  PROJECT WORKSPACE
-                </span>
-                <span
-                  className="metadata text-[8.5px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-[4px]"
-                  style={{
-                    backgroundColor: 'rgba(185, 155, 121, 0.18)',
-                    color: '#B99B79',
-                  }}
-                >
-                  Beta Feature
-                </span>
-              </div>
-              <p className="font-editorial text-[14px] font-semibold leading-tight truncate" style={{ color: '#EDEAE2' }}>
-                {project.title}
-              </p>
-              <p className="metadata text-[10px]" style={{ color: 'rgba(217, 213, 203, 0.45)' }}>
-                {project.draftSubtitle || 'Draft 2 · Act II Sequence 4'}
-              </p>
-            </div>
-
-            {/* 4 Technical Groups (2.1 OVERVIEW, 2.2 STORY DEV, 2.3 WRITING, 2.4 RESEARCH) */}
-            <nav className="space-y-5">
-              {STUDIO_SIDEBAR_GROUPS.map((grp) => (
-                <div key={grp.code} className="space-y-1.5">
-                  <span
-                    className="metadata text-[9.5px] uppercase tracking-[0.14em] block px-1"
-                    style={{ color: 'rgba(217, 213, 203, 0.4)' }}
-                  >
-                    {grp.code} {grp.title}
+        {!(screenplayFocusMode && state.activeModule === 'screenplay') && (
+          <aside
+            className="lg:col-span-2 p-3.5 space-y-5 flex flex-col justify-between"
+            style={{
+              backgroundColor: '#0c0e12',
+              borderRight: '1px solid rgba(217, 213, 203, 0.08)',
+            }}
+          >
+            <div className="space-y-4">
+              {/* Project Micro-header (Matches HTML PROJECT DOSSIER) */}
+              <div
+                className="p-3 rounded-lg space-y-1.5"
+                style={{
+                  backgroundColor: '#1a1c20',
+                  border: '1px solid rgba(217, 213, 203, 0.08)',
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="metadata text-[9.5px] uppercase tracking-widest font-semibold" style={{ color: '#eac16f' }}>
+                    PROJECT DOSSIER
                   </span>
-                  <div className="space-y-0.5">
-                    {grp.modules.map((mod) => {
-                      const active = state.activeModule === mod.id;
-                      let badgeVal = mod.tag;
-                      if (mod.id === 'characters') badgeVal = String(project.characters.length);
-                      if (mod.id === 'locations') badgeVal = String(project.locations.length);
-                      if (mod.id === 'screenplay') badgeVal = `${project.scenes.length} Sc`;
-                      if (mod.id === 'notes') badgeVal = String(project.notes.length);
+                  <span className="metadata text-[9px] text-[#9a8f7f]">
+                    {project.status}
+                  </span>
+                </div>
+                <p className="font-editorial text-[14.5px] font-semibold leading-tight truncate text-[#e2e2e8]">
+                  {project.title}
+                </p>
+                <p className="metadata text-[10px] text-[#d1c5b3]">
+                  {project.format || 'Feature Film · 5-Act Structure'}
+                </p>
+                <div className="pt-2 border-t border-[#4e4638]/25 flex items-center justify-between metadata text-[10px] text-[#d1c5b3]">
+                  <span>Tiến độ Hồi II: 68%</span>
+                  <span className="text-[#eac16f] font-semibold">Seq. 4 / 8</span>
+                </div>
+                <div className="w-full h-1 bg-[#1e2024] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#eac16f]" style={{ width: '68%' }} />
+                </div>
+              </div>
 
-                      return (
-                        <button
-                          key={mod.id}
-                          type="button"
-                          onClick={() => setModule(mod.id)}
-                          className="w-full px-2.5 py-1.5 rounded-[7px] text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
-                          style={{
-                            backgroundColor: active ? '#1E2026' : 'transparent',
-                            color: active ? '#EDEAE2' : 'rgba(217, 213, 203, 0.65)',
-                            borderLeft: active ? '2px solid #B99B79' : '2px solid transparent',
-                          }}
-                        >
-                          <span className="text-[12.5px] font-medium truncate">
-                            {mod.label}
-                          </span>
-                          <span
-                            className="metadata text-[9.5px] tabular-nums shrink-0 px-1.5 py-0.5 rounded-[4px]"
+              {/* 4 Technical Groups (2.1 OVERVIEW, 2.2 STORY DEV, 2.3 WRITING, 2.4 RESEARCH) */}
+              <nav className="space-y-4">
+                {STUDIO_SIDEBAR_GROUPS.map((grp) => (
+                  <div key={grp.code} className="space-y-1">
+                    <span
+                      className="metadata text-[9.5px] uppercase tracking-[0.14em] block px-1"
+                      style={{ color: 'rgba(217, 213, 203, 0.45)' }}
+                    >
+                      {grp.code} {grp.title}
+                    </span>
+                    <div className="space-y-0.5">
+                      {grp.modules.map((mod) => {
+                        const active = state.activeModule === mod.id;
+                        let badgeVal = mod.tag;
+                        if (mod.id === 'characters') badgeVal = String(project.characters.length);
+                        if (mod.id === 'locations') badgeVal = String(project.locations.length);
+                        if (mod.id === 'screenplay') badgeVal = 'Act 2';
+                        if (mod.id === 'notes') badgeVal = String(project.notes.length);
+
+                        return (
+                          <button
+                            key={mod.id}
+                            type="button"
+                            onClick={() => setModule(mod.id)}
+                            className="w-full px-2.5 py-1.5 rounded-[7px] text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
                             style={{
-                              backgroundColor: active ? 'rgba(185, 155, 121, 0.2)' : 'rgba(217, 213, 203, 0.05)',
-                              color: active ? '#B99B79' : 'rgba(217, 213, 203, 0.4)',
+                              backgroundColor: active ? '#c6a052' : 'transparent',
+                              color: active ? '#261900' : 'rgba(217, 213, 203, 0.72)',
+                              fontWeight: active ? 600 : 500,
                             }}
                           >
-                            {badgeVal}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <span className="text-[12px] truncate flex items-center gap-1.5">
+                              {active && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#261900] animate-pulse" />
+                              )}
+                              {mod.label}
+                            </span>
+                            <span
+                              className="metadata text-[9.5px] tabular-nums shrink-0 px-1.5 py-0.2 rounded-[4px]"
+                              style={{
+                                backgroundColor: active ? 'rgba(38, 25, 0, 0.18)' : 'rgba(217, 213, 203, 0.06)',
+                                color: active ? '#261900' : 'rgba(217, 213, 203, 0.45)',
+                              }}
+                            >
+                              {badgeVal}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </nav>
-          </div>
+                ))}
+              </nav>
 
-          {/* Bottom Action: + Add Scene */}
-          <div className="pt-4 border-t border-[rgba(217,213,203,0.08)]">
-            <button
-              type="button"
-              onClick={() => addScene('Act II-B — Biến cố')}
-              className="w-full py-2 px-3 rounded-[8px] text-[12px] font-medium transition-colors hover:bg-[rgba(185,155,121,0.12)] cursor-pointer text-left flex items-center justify-between"
-              style={{
-                backgroundColor: 'transparent',
-                color: '#B99B79',
-                border: '1px dashed rgba(185, 155, 121, 0.4)',
-              }}
-            >
-              <span>+ Add Scene to Act II</span>
-              <span className="metadata text-[10px]">↵</span>
-            </button>
-          </div>
-        </aside>
+              {/* QUICK SCENE OUTLINER (Active Story Flow — SCENE INDEX) */}
+              <div className="pt-2 border-t border-[#4e4638]/20 space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="metadata text-[9.5px] uppercase tracking-widest text-[#9a8f7f]">
+                    SCENE INDEX (ACT II)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => addScene('Act II-A — Đối đầu')}
+                    className="metadata text-[10px] text-[#eac16f] hover:underline cursor-pointer"
+                  >
+                    + Scene ({project.scenes.length})
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-0.5">
+                  {project.scenes.map((sc, idx) => {
+                    const isCur = activeScene?.id === sc.id;
+                    const pageRanges = ['P. 12-15', 'P. 16-17', 'P. 18-21 (3/8 Pgs)', 'P. 22-24'];
+                    const durations = ['2.5 phút', '1.8 phút', '~ 3.0 phút', 'Chưa viết'];
+                    return (
+                      <div
+                        key={sc.id}
+                        onClick={() => {
+                          setSelectedSceneId(sc.id);
+                          updateProject({ lastOpenedSceneId: sc.id });
+                          if (state.activeModule !== 'screenplay') {
+                            setModule('screenplay');
+                          }
+                        }}
+                        className={`p-2 rounded cursor-pointer transition-colors relative overflow-hidden ${
+                          isCur
+                            ? 'bg-[#282a2e] shadow-md'
+                            : 'bg-[#1a1c20] hover:bg-[#1e2024] text-[#d1c5b3]'
+                        }`}
+                      >
+                        {isCur && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#eac16f]" />
+                        )}
+                        <div className="flex items-center justify-between metadata text-[9.5px]">
+                          <span className={isCur ? 'text-[#eac16f] font-bold tracking-wider' : 'text-[#9a8f7f] font-semibold'}>
+                            SCENE {sc.sceneNumber}
+                            {isCur ? ' · LIVE' : ''}
+                          </span>
+                          <span
+                            className={
+                              isCur
+                                ? 'px-1.5 py-0.2 bg-[#eac16f]/20 text-[#eac16f] rounded font-semibold'
+                                : sc.status === 'Locked'
+                                ? 'text-[#eac16f]'
+                                : 'text-[#9a8f7f]'
+                            }
+                          >
+                            {isCur
+                              ? 'ĐANG SOẠN'
+                              : sc.status === 'Locked'
+                              ? '✓ Done'
+                              : 'Kế tiếp'}
+                          </span>
+                        </div>
+                        <p className="text-[11.5px] font-semibold text-[#e2e2e8] mt-1 truncate">
+                          {sc.intExt} {sc.locationName} - {sc.timeOfDay}
+                        </p>
+                        <div className="flex items-center justify-between mt-1 metadata text-[9.5px] text-[#9a8f7f]">
+                          <span className={isCur ? 'text-[#e2c471] font-medium' : ''}>
+                            {pageRanges[idx] || `P. ${12 + idx * 3}`}
+                          </span>
+                          <span className={isCur ? 'text-[#eac16f] font-semibold' : ''}>
+                            {durations[idx] || '~ 2.0 phút'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Left Bottom Status: Screenplay AI Co-pilot */}
+            <div className="p-2.5 rounded-lg bg-[#1a1c20] border border-[#4e4638]/20 space-y-1.5">
+              <div className="flex items-center gap-1.5 metadata text-[10px]">
+                <span className="text-[#eac16f]">✦</span>
+                <span className="text-[#e2e2e8] font-semibold">Screenplay AI Co-pilot</span>
+              </div>
+              <p className="text-[11px] text-[#9a8f7f] leading-snug">
+                Sẵn sàng phân tích nhịp kịch bản và xung đột thoại theo phong cách Noir.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('success');
+                  showToast(
+                    `Scene ${activeScene?.sceneNumber || '06'}: Pacing Slow-Burn (8/10) · Subtext mạnh ở nhịp đũa rơi & tấm vé phà 2008`
+                  );
+                }}
+                className="w-full py-1.5 px-2 rounded bg-[#1e2024] hover:bg-[#282a2e] text-[#eac16f] metadata text-[10px] font-semibold transition-colors cursor-pointer"
+              >
+                ⚡ Phân tích nhịp Scene {activeScene?.sceneNumber || '06'}
+              </button>
+            </div>
+          </aside>
+        )}
 
         {/* ==============================================================
             MODULE 03: CHARACTERS (Matches the Single Column List + Dossier)
@@ -1456,302 +1538,19 @@ ${project.scenes.map((sc) => `
             MODULE 04: SCREENPLAY EDITOR (Hollywood Scriptwriter)
             ============================================================== */}
         {state.activeModule === 'screenplay' && activeScene && (
-          <div className="lg:col-span-10 grid grid-cols-1 lg:grid-cols-12 min-h-0">
-            {/* Left Scenes Outline (4 cols) */}
-            <div
-              className="lg:col-span-4 p-5 space-y-4 border-r border-[rgba(217,213,203,0.08)] overflow-y-auto"
-              style={{ backgroundColor: '#13151A' }}
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-[rgba(217,213,203,0.06)]">
-                <div>
-                  <span className="metadata text-[9.5px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
-                    SCENES ({project.scenes.length})
-                  </span>
-                  <p className="text-[12px]" style={{ color: 'rgba(217,213,203,0.45)' }}>
-                    Tổng: {project.scenes.reduce((sum, sc) => sum + countSceneWords(sc), 0)} từ
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addScene()}
-                  className="px-2.5 py-1 rounded-[6px] text-[11px] font-semibold cursor-pointer"
-                  style={{ backgroundColor: '#B99B79', color: '#101114' }}
-                >
-                  + Add Scene
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {project.scenes.map((sc) => {
-                  const isCur = activeScene.id === sc.id;
-                  return (
-                    <div
-                      key={sc.id}
-                      onClick={() => {
-                        setSelectedSceneId(sc.id);
-                        updateProject({ lastOpenedSceneId: sc.id });
-                      }}
-                      className="p-3 rounded-[9px] cursor-pointer transition-colors space-y-1"
-                      style={{
-                        backgroundColor: isCur ? '#1F2229' : '#17191E',
-                        border: isCur ? '1px solid #B99B79' : '1px solid rgba(217,213,203,0.06)',
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="metadata text-[10.5px] font-bold" style={{ color: '#B99B79' }}>
-                          Scene {sc.sceneNumber}
-                        </span>
-                        <span className="metadata text-[9px] px-1.5 py-0.5 rounded-[3px] bg-[#101114] text-[rgba(217,213,203,0.6)]">
-                          {sc.status}
-                        </span>
-                      </div>
-                      <p className="text-[13px] font-semibold truncate" style={{ color: '#EDEAE2' }}>
-                        {sc.intExt} {sc.locationName}
-                      </p>
-                      <p className="text-[11.5px] truncate" style={{ color: 'rgba(217,213,203,0.45)' }}>
-                        {sc.actionDescription || 'Chưa có mô tả hành động...'}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Center Script Canvas (8 cols) */}
-            <div className="lg:col-span-8 p-6 sm:p-8 space-y-6 overflow-y-auto" style={{ backgroundColor: '#101114' }}>
-              {/* Scene Slugline Bar */}
-              <div
-                className="p-4 rounded-[10px] space-y-3"
-                style={{
-                  backgroundColor: '#16181D',
-                  border: '1px solid rgba(217, 213, 203, 0.08)',
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="metadata text-[11px] font-bold" style={{ color: '#B99B79' }}>
-                    SLUGLINE · SCENE {activeScene.sceneNumber}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleExportScript('pdf')}
-                      className="metadata text-[10.5px] px-2 py-1 rounded-[5px] bg-[#101114] hover:text-[#B99B79] cursor-pointer"
-                    >
-                      Print
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExportScript('md')}
-                      className="metadata text-[10.5px] px-2 py-1 rounded-[5px] bg-[#101114] hover:text-[#B99B79] cursor-pointer"
-                    >
-                      .MD
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <select
-                    value={activeScene.intExt}
-                    onChange={(e) => {
-                      const val = e.target.value as ScreenplayScene['intExt'];
-                      updateProject((curr) => ({
-                        ...curr,
-                        scenes: curr.scenes.map((s) => (s.id === activeScene.id ? { ...s, intExt: val } : s)),
-                      }));
-                    }}
-                    className="p-2 rounded-[6px] bg-[#101114] text-[12px] font-mono font-bold text-[#EDEAE2]"
-                  >
-                    <option value="INT.">INT.</option>
-                    <option value="EXT.">EXT.</option>
-                    <option value="INT./EXT.">INT./EXT.</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    value={activeScene.locationName}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      updateProject((curr) => ({
-                        ...curr,
-                        scenes: curr.scenes.map((s) => (s.id === activeScene.id ? { ...s, locationName: val } : s)),
-                      }));
-                    }}
-                    placeholder="LOCATION"
-                    className="p-2 rounded-[6px] bg-[#101114] text-[12px] font-mono font-bold uppercase text-[#EDEAE2]"
-                  />
-
-                  <input
-                    type="text"
-                    value={activeScene.timeOfDay}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      updateProject((curr) => ({
-                        ...curr,
-                        scenes: curr.scenes.map((s) => (s.id === activeScene.id ? { ...s, timeOfDay: val } : s)),
-                      }));
-                    }}
-                    placeholder="TIME (NIGHT/DAY)"
-                    className="p-2 rounded-[6px] bg-[#101114] text-[12px] font-mono font-bold uppercase text-[#EDEAE2]"
-                  />
-                </div>
-              </div>
-
-              {/* Action Description */}
-              <div className="space-y-1.5">
-                <label className="metadata text-[10px] uppercase tracking-[0.1em]" style={{ color: 'rgba(217,213,203,0.45)' }}>
-                  Action Description (Hành động & Bối cảnh trực quan)
-                </label>
-                <textarea
-                  rows={5}
-                  value={activeScene.actionDescription}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    updateProject((curr) => ({
-                      ...curr,
-                      scenes: curr.scenes.map((s) => (s.id === activeScene.id ? { ...s, actionDescription: val } : s)),
-                    }));
-                  }}
-                  className="w-full p-4 rounded-[10px] text-[13.5px] font-mono leading-relaxed bg-[#16181D] border border-[rgba(217,213,203,0.08)] text-[#EDEAE2]"
-                />
-              </div>
-
-              {/* Dialogues */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-[rgba(217,213,203,0.06)] pb-2">
-                  <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
-                    DIALOGUE SEQUENCES ({activeScene.dialogues.length})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const id = createId('dlg');
-                      const firstChar = project.characters[0];
-                      const newDlg: DialogueLine = {
-                        id,
-                        characterId: firstChar?.id || '',
-                        characterName: firstChar?.name?.toUpperCase() || 'NHÂN VẬT',
-                        parenthetical: '',
-                        text: 'Lời thoại mới...',
-                      };
-                      updateProject((curr) => ({
-                        ...curr,
-                        scenes: curr.scenes.map((s) =>
-                          s.id === activeScene.id ? { ...s, dialogues: [...s.dialogues, newDlg] } : s
-                        ),
-                      }));
-                    }}
-                    className="px-2.5 py-1 rounded-[6px] text-[11px] font-semibold cursor-pointer"
-                    style={{ backgroundColor: '#1E2026', color: '#B99B79', border: '1px solid rgba(185,155,121,0.3)' }}
-                  >
-                    + Add Dialogue
-                  </button>
-                </div>
-
-                <div className="space-y-4 max-w-xl mx-auto">
-                  {activeScene.dialogues.map((dlg, idx) => (
-                    <div
-                      key={dlg.id}
-                      className="p-4 rounded-[10px] space-y-2 bg-[#14161B] border border-[rgba(217,213,203,0.08)]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <select
-                          value={dlg.characterId}
-                          onChange={(e) => {
-                            const cId = e.target.value;
-                            const ch = project.characters.find((c) => c.id === cId);
-                            updateProject((curr) => ({
-                              ...curr,
-                              scenes: curr.scenes.map((s) =>
-                                s.id === activeScene.id
-                                  ? {
-                                      ...s,
-                                      dialogues: s.dialogues.map((d) =>
-                                        d.id === dlg.id
-                                          ? { ...d, characterId: cId, characterName: ch?.name?.toUpperCase() || d.characterName }
-                                          : d
-                                      ),
-                                    }
-                                  : s
-                              ),
-                            }));
-                          }}
-                          className="font-mono text-[13px] font-bold uppercase bg-transparent text-[#B99B79] cursor-pointer"
-                        >
-                          {project.characters.map((c) => (
-                            <option key={c.id} value={c.id} style={{ backgroundColor: '#1B1D22', color: '#EDEAE2' }}>
-                              {c.name.toUpperCase()}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateProject((curr) => ({
-                              ...curr,
-                              scenes: curr.scenes.map((s) =>
-                                s.id === activeScene.id
-                                  ? { ...s, dialogues: s.dialogues.filter((d) => d.id !== dlg.id) }
-                                  : s
-                              ),
-                            }));
-                          }}
-                          className="metadata text-[10px] text-[rgba(217,213,203,0.35)] hover:text-red-400 cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={dlg.parenthetical}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateProject((curr) => ({
-                            ...curr,
-                            scenes: curr.scenes.map((s) =>
-                              s.id === activeScene.id
-                                ? {
-                                    ...s,
-                                    dialogues: s.dialogues.map((d) =>
-                                      d.id === dlg.id ? { ...d, parenthetical: val } : d
-                                    ),
-                                  }
-                                : s
-                            ),
-                          }));
-                        }}
-                        placeholder="(parenthetical action or voice tone)"
-                        className="w-full text-[12px] italic font-mono bg-transparent text-[rgba(217,213,203,0.6)] border-b border-[rgba(217,213,203,0.06)]"
-                      />
-
-                      <textarea
-                        rows={3}
-                        value={dlg.text}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateProject((curr) => ({
-                            ...curr,
-                            scenes: curr.scenes.map((s) =>
-                              s.id === activeScene.id
-                                ? {
-                                    ...s,
-                                    dialogues: s.dialogues.map((d) =>
-                                      d.id === dlg.id ? { ...d, text: val } : d
-                                    ),
-                                  }
-                                : s
-                            ),
-                          }));
-                        }}
-                        className="w-full text-[13.5px] font-mono leading-relaxed bg-transparent text-[#EDEAE2]"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ScreenplayEditorStage
+            project={project}
+            activeScene={activeScene}
+            focusMode={screenplayFocusMode}
+            onToggleFocusMode={() => setScreenplayFocusMode((v) => !v)}
+            onUpdateProject={updateProject}
+            onAddScene={() => addScene('Act II-B — Biến cố')}
+            onOpenCharacterDossier={(charId) => {
+              if (charId) setSelectedCharId(charId);
+              setModule('characters');
+            }}
+            onExportScript={handleExportScript}
+          />
         )}
 
         {/* ==============================================================

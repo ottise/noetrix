@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createId, getLocalDateStr, formatShortDate } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import type { ChessGameLog, ChessModule, ChessStage } from '../../types';
 import { Modal, useToast } from '../../components/ui/Primitives';
 import {
@@ -256,6 +257,7 @@ function loadChessUI(): PersistedChessUI {
 
 export function ChessLab() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const modules = useLiveQuery(() => db.chessModules.toArray()) || [];
   const games = useLiveQuery(() => db.chessGames.orderBy('createdAt').reverse().toArray()) || [];
 
@@ -399,10 +401,10 @@ export function ChessLab() {
       <div className="flex items-center gap-1.5 flex-wrap">
         {(
           [
-            ['path', 'Learning Path'],
-            ['practice', 'Practice Board'],
-            ['journal', 'Game Journal'],
-            ['library', 'Chess Library'],
+            ['path', t('Learning Path', 'Lộ trình học')],
+            ['practice', t('Practice Board', 'Bàn cờ thực hành')],
+            ['journal', t('Game Journal', 'Nhật ký ván đấu')],
+            ['library', t('Chess Library', 'Thư viện Cờ')],
           ] as const
         ).map(([sec, lbl]) => (
           <button
@@ -438,11 +440,11 @@ export function ChessLab() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--os-border)]">
           <div className="space-y-1">
             <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-              THE PLAYGROUND / CHESS ROOM
+              {t('THE PLAYGROUND / CHESS ROOM', 'SÂN CHƠI / PHÒNG CỜ VUA')}
             </span>
-            <h2 className="editorial-h2">Think ahead before you move.</h2>
+            <h2 className="editorial-h2">{t('Think ahead before you move.', 'Nghĩ trước vài bước trước khi đi.')}</h2>
             <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              A quiet, structured journey from fundamentals to mastery.
+              {t('A quiet, structured journey from fundamentals to mastery.', 'Hành trình tĩnh lặng và bài bản từ nền tảng đến tinh thông.')}
             </p>
           </div>
 
@@ -452,16 +454,16 @@ export function ChessLab() {
                 {masteredCount} <span className="text-[14px]" style={{ color: 'var(--os-ivory-faint)' }}>/ {sortedModules.length}</span>
               </p>
               <p className="metadata text-[9.5px] uppercase mt-1" style={{ color: 'var(--os-ivory-faint)' }}>
-                Lessons Mastered
+                {t('Lessons Mastered', 'Bài đã thành thạo')}
               </p>
             </div>
             <div className="h-7 w-[1px] bg-[var(--os-border)]" />
             <div>
               <p className="font-editorial text-[16px] leading-none" style={{ color: games.length > 0 ? 'var(--os-sage)' : 'var(--os-ivory-muted)' }}>
-                {games.length > 0 ? `${games.length} Games Logged` : 'No games recorded'}
+                {games.length > 0 ? t(`${games.length} Games Logged`, `${games.length} Ván đã ghi`) : t('No games recorded', 'Chưa ghi ván nào')}
               </p>
               <p className="metadata text-[9.5px] uppercase mt-1.5" style={{ color: 'var(--os-ivory-faint)' }}>
-                Game Journal
+                {t('Game Journal', 'Nhật ký ván đấu')}
               </p>
             </div>
           </div>
@@ -479,10 +481,10 @@ export function ChessLab() {
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                      ● CURRENT SESSION · RESUME LEARNING
+                      {t('● CURRENT SESSION · RESUME LEARNING', '● PHIÊN HIỆN TẠI · HỌC TIẾP')}
                     </span>
                     <span className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      · {resumeStage} · LESSON {String(resumeNum).padStart(2, '0')} / {String(stageTotal).padStart(2, '0')}
+                      · {resumeStage} · {t('LESSON', 'BÀI')} {String(resumeNum).padStart(2, '0')} / {String(stageTotal).padStart(2, '0')}
                     </span>
                   </div>
                   <h3 className="font-editorial-vi text-[24px] sm:text-[28px] leading-snug" style={{ color: 'var(--os-ivory-bright)' }}>
@@ -500,7 +502,7 @@ export function ChessLab() {
                     className="px-4 py-2 rounded-[9px] text-[13px] font-medium cursor-pointer transition-opacity hover:opacity-90"
                     style={{ backgroundColor: 'var(--os-ivory-bright)', color: 'var(--os-obsidian)' }}
                   >
-                    Continue where you left off →
+                    {t('Continue where you left off →', 'Tiếp tục bài đang học →')}
                   </button>
                   <button
                     type="button"
@@ -508,7 +510,7 @@ export function ChessLab() {
                     className="metadata text-[11px] hover:underline cursor-pointer"
                     style={{ color: 'var(--os-dusty-blue)' }}
                   >
-                    Mở Bàn cờ thực hành ↗
+                    {t('Open Practice Board ↗', 'Mở Bàn cờ thực hành ↗')}
                   </button>
                 </div>
               </div>
@@ -527,10 +529,10 @@ export function ChessLab() {
                 />
                 <div className="relative z-10 space-y-1">
                   <span className="metadata text-[9.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    RULE 01
+                    {t('RULE 01', 'NGUYÊN TẮC 01')}
                   </span>
                   <p className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(237,234,226,0.88)' }}>
-                    “Don&apos;t memorize moves. Understand why a move works.”
+                    {t('“Don’t memorize moves. Understand why a move works.”', '“Đừng học vẹt nước đi. Hãy hiểu vì sao nước đi đó có giá trị.”')}
                   </p>
                 </div>
               </div>
@@ -540,40 +542,40 @@ export function ChessLab() {
 
         {/* FOUR CLEAN DESTINATIONS (Overview -> Destinations, Not All Content Dumped!) */}
         <section className="space-y-3">
-          <p className="editorial-eyebrow">EXPLORE CHESS ROOM</p>
+          <p className="editorial-eyebrow">{t('EXPLORE CHESS ROOM', 'KHÁM PHÁ PHÒNG CỜ')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-y divide-y sm:divide-y-0 sm:divide-x divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
             {(
               [
                 {
                   id: 'path',
                   num: '01',
-                  title: 'Learning Path',
-                  sub: 'Giáo trình 3 giai đoạn từ Foundation đến Advanced.',
-                  cta: `${sortedModules.length} lessons`,
+                  title: t('Learning Path', 'Lộ Trình Học'),
+                  sub: t('3-stage curriculum from Foundation to Advanced.', 'Giáo trình 3 giai đoạn từ Foundation đến Advanced.'),
+                  cta: `${sortedModules.length} ${t('lessons', 'bài')}`,
                   accent: 'var(--os-brass)',
                 },
                 {
                   id: 'practice',
                   num: '02',
-                  title: 'Practice Board',
-                  sub: 'Bàn cờ tương tác kéo thả hợp lệ, Khai cuộc & Tactical Puzzles.',
-                  cta: 'Interactive 8×8',
+                  title: t('Practice Board', 'Bàn Cờ Thực Hành'),
+                  sub: t('Legal drag-and-drop board, Openings & Tactical Puzzles.', 'Bàn cờ tương tác kéo thả hợp lệ, Khai cuộc & Tactical Puzzles.'),
+                  cta: t('Interactive 8×8', 'Bàn cờ 8×8'),
                   accent: 'var(--os-dusty-blue)',
                 },
                 {
                   id: 'journal',
                   num: '03',
-                  title: 'Game Journal',
-                  sub: 'Lưu PGN, Critical Moments & tự phân tích 4 câu hỏi trước Engine.',
-                  cta: games.length > 0 ? `${games.length} games` : 'Ready to log',
+                  title: t('Game Journal', 'Nhật Ký Ván Đấu'),
+                  sub: t('Save PGN, Critical Moments & self-analyze before turning on Engine.', 'Lưu PGN, Critical Moments & tự phân tích 4 câu hỏi trước Engine.'),
+                  cta: games.length > 0 ? `${games.length} ${t('games', 'ván')}` : t('Ready to log', 'Sẵn sàng ghi'),
                   accent: 'var(--os-sage)',
                 },
                 {
                   id: 'library',
                   num: '04',
-                  title: 'Chess Library',
-                  sub: 'Sách kinh điển, khóa học, Lichess Studies phân theo trình độ.',
-                  cta: `${CHESS_LIBRARY_ITEMS.length} references`,
+                  title: t('Chess Library', 'Thư Viện Cờ'),
+                  sub: t('Classic books, courses & Lichess Studies curated by level.', 'Sách kinh điển, khóa học, Lichess Studies phân theo trình độ.'),
+                  cta: `${CHESS_LIBRARY_ITEMS.length} ${t('references', 'tài liệu')}`,
                   accent: 'var(--os-ivory-muted)',
                 },
               ] as const
@@ -760,15 +762,25 @@ export function ChessLab() {
     const num = extractLessonNumber(activeLesson.title);
     const stageName = activeLesson.phase === 1 ? 'FOUNDATION' : activeLesson.phase === 2 ? 'INTERMEDIATE' : 'ADVANCED';
 
-    // Select a relevant board position for this lesson's Examples / Practice
+    // Select a relevant board position for this lesson's Theory Diagram / Examples / Practice
     const lessonSampleFen =
-      num === 3
-        ? OPENING_LINES[0].steps[5].fen // Italian Game
+      num === 1
+        ? INITIAL_FEN
+        : num === 2
+        ? 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4'
+        : num === 3
+        ? OPENING_LINES[0]?.steps[Math.min(5, (OPENING_LINES[0]?.steps.length || 1) - 1)]?.fen || INITIAL_FEN
+        : num === 4
+        ? CHESS_PUZZLES[1]?.fen || INITIAL_FEN
         : num === 5
-        ? CHESS_PUZZLES[2].fen // Royal Fork
+        ? CHESS_PUZZLES[2]?.fen || INITIAL_FEN
         : num === 6
-        ? '8/8/4k3/8/4P3/4K3/8/8 w - - 0 1' // K+P vs K Opposition
-        : INITIAL_FEN;
+        ? '8/8/4k3/8/4P3/4K3/8/8 w - - 0 1'
+        : num % 3 === 1
+        ? CHESS_PUZZLES[3]?.fen || INITIAL_FEN
+        : num % 3 === 2
+        ? CHESS_PUZZLES[4]?.fen || INITIAL_FEN
+        : 'r2q1rk1/ppp2ppp/2npbn2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 8';
 
     return (
       <div className="space-y-6">
@@ -849,44 +861,55 @@ export function ChessLab() {
 
         {/* Tab Views */}
         {lessonTab === 'theory' && (
-          <div className="space-y-6 max-w-3xl">
-            <div className="space-y-2">
-              <span className="metadata text-[10.5px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
-                CORE CONCEPT — HIỂU TẠI SAO TRƯỚC KHI THUỘC LÒNG
-              </span>
-              <p className="text-[15px] leading-[1.75]" style={{ color: 'var(--os-ivory)' }}>
-                {activeLesson.concept || activeLesson.description}
-              </p>
-            </div>
-
-            {activeLesson.mistake && (
-              <div className="p-4 rounded-[10px] space-y-1" style={{ backgroundColor: '#15171C', border: '1px solid rgba(194,123,118,0.3)' }}>
-                <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-crimson)' }}>
-                  COMMON TRAP · LỖI THƯỜNG GẶP CẦN TRÁNH
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+            <div className="lg:col-span-7 space-y-6">
+              <div className="space-y-2">
+                <span className="metadata text-[10.5px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
+                  {t('CORE CONCEPT — UNDERSTAND WHY BEFORE MEMORIZING', 'NGUYÊN LÝ CỐT LÕI — HIỂU TẠI SAO TRƯỚC KHI THUỘC LÒNG')}
                 </span>
-                <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>
-                  {activeLesson.mistake}
+                <p className="text-[15px] leading-[1.75]" style={{ color: 'var(--os-ivory)' }}>
+                  {activeLesson.concept || activeLesson.description}
                 </p>
               </div>
-            )}
 
-            <div className="flex gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setLessonTab('examples')}
-                className="px-4 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer"
-                style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
-              >
-                Xem ví dụ trên bàn cờ →
-              </button>
-              <button
-                type="button"
-                onClick={() => setLessonTab('explain')}
-                className="px-4 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer"
-                style={{ backgroundColor: 'var(--os-graphite)', color: 'var(--os-ivory)', border: '1px solid var(--os-border)' }}
-              >
-                Tự diễn giải (Explain)
-              </button>
+              {activeLesson.mistake && (
+                <div className="p-4 rounded-[10px] space-y-1" style={{ backgroundColor: '#15171C', border: '1px solid rgba(194,123,118,0.3)' }}>
+                  <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-crimson)' }}>
+                    {t('COMMON TRAP TO AVOID', 'LỖI THƯỜNG GẶP CẦN TRÁNH')}
+                  </span>
+                  <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>
+                    {activeLesson.mistake}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLessonTab('examples')}
+                  className="px-4 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer"
+                  style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
+                >
+                  {t('Inspect Worked Example →', 'Xem ví dụ trên bàn cờ →')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLessonTab('explain')}
+                  className="px-4 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer"
+                  style={{ backgroundColor: 'var(--os-graphite)', color: 'var(--os-ivory)', border: '1px solid var(--os-border)' }}
+                >
+                  {t('Self-Explain', 'Tự diễn giải (Explain)')}
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 space-y-2.5">
+              <div className="p-3.5 rounded-[12px] space-y-2.5" style={{ backgroundColor: '#12151C', border: '1px solid rgba(203, 168, 106, 0.22)' }}>
+                <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#cba86a' }}>
+                  {t('ILLUSTRATIVE BOARD POSITION', 'HÌNH MINH HỌA THẾ CỜ')}
+                </span>
+                <InteractiveChessBoard initialFen={lessonSampleFen} />
+              </div>
             </div>
           </div>
         )}

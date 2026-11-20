@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db, getLocalDateStr } from '../../db/database';
 import { awardXp } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { CheckDot, ProgressBar, useToast } from '../../components/ui/Primitives';
 import {
@@ -166,6 +167,7 @@ const EIGHT_STEP_WORKFLOW: {
 
 export function LeetCode100Lab() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [state, setState] = useState<LeetCode100PersistedState>(() => loadPersistedState());
   const [selectedChapterId, setSelectedChapterId] = useState<string>(() => state.lastChapterId || 'ch01');
   const [selectedProblemNum, setSelectedProblemNum] = useState<number>(() => state.lastProblemNum || 1);
@@ -438,20 +440,28 @@ export function LeetCode100Lab() {
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="metadata text-[11px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                LEETCODE 100 — 90-DAY LEARNING ROADMAP
+                {t('LEETCODE 100 — 90-DAY LEARNING ROADMAP', 'LEETCODE 100 — LỘ TRÌNH HỌC 90 NGÀY')}
               </span>
               <span style={{ color: 'var(--os-ivory-faint)' }}>·</span>
               <span className="metadata text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-dusty-blue)' }}>
-                JAVA BACKEND FOCUS · 1–2H/NGÀY · 6 NGÀY/TUẦN
+                {t('JAVA BACKEND FOCUS · 1–2H/DAY · 6 DAYS/WEEK', 'TRỌNG TÂM JAVA BACKEND · 1–2H/NGÀY · 6 NGÀY/TUẦN')}
               </span>
             </div>
 
-            <h2 className="editorial-h1">From Zero to Problem Solving.</h2>
+            <h2 className="editorial-h1">
+              {t('From Zero to Problem Solving.', 'Từ Số 0 Đến Giải Quyết Vấn Đề.')}
+            </h2>
 
             <p className="text-[14px] max-w-2xl leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-              100 bài trong 90 ngày không phải để sưu tầm 100 Accepted. Mục tiêu là sau 3 tháng, khi gặp một bài mới, bạn có thể{' '}
+              {t(
+                '100 problems in 90 days is not about chasing 100 Accepted badges. The goal is that after 3 months, facing any unseen problem, you can ',
+                '100 bài trong 90 ngày không phải để sưu tầm 100 Accepted. Mục tiêu là sau 3 tháng, khi gặp một bài mới, bạn có thể '
+              )}
               <strong style={{ color: 'var(--os-ivory-bright)' }}>
-                nhận diện vấn đề, chọn hướng giải, chứng minh tính đúng đắn và tự triển khai bằng Java
+                {t(
+                  'identify the core pattern, pick an approach, prove correctness, and implement cleanly in Java',
+                  'nhận diện vấn đề, chọn hướng giải, chứng minh tính đúng đắn và tự triển khai bằng Java'
+                )}
               </strong>
               .
             </p>
@@ -468,7 +478,9 @@ export function LeetCode100Lab() {
                 border: '1px solid var(--os-border)',
               }}
             >
-              {showScheduleDrawer ? 'Ẩn Lịch 90 Ngày & Tài liệu' : 'Lịch 90 Ngày & Tài liệu ↗'}
+              {showScheduleDrawer
+                ? t('Hide 90-Day Schedule & Docs', 'Ẩn Lịch 90 Ngày & Tài liệu')
+                : t('90-Day Schedule & Docs ↗', 'Lịch 90 Ngày & Tài liệu ↗')}
             </button>
           </div>
         </div>
@@ -483,7 +495,7 @@ export function LeetCode100Lab() {
               {solvedCount} / 100
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
-              Bài đã giải trong lộ trình 90 ngày
+              {t('Solved in 90-day roadmap', 'Bài đã giải trong lộ trình 90 ngày')}
             </p>
           </div>
 
@@ -492,7 +504,7 @@ export function LeetCode100Lab() {
               {masteredOrResolvedCount}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
-              Mastered & Re-solved (Hiểu sâu pattern)
+              {t('Mastered & Re-solved (Deep pattern)', 'Mastered & Re-solved (Hiểu sâu pattern)')}
             </p>
           </div>
 
@@ -501,7 +513,7 @@ export function LeetCode100Lab() {
               {independentCount}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
-              Independent (Tự giải không phụ thuộc lời giải)
+              {t('Independent (Solved without hints)', 'Independent (Tự giải không phụ thuộc lời giải)')}
             </p>
           </div>
 
@@ -510,7 +522,7 @@ export function LeetCode100Lab() {
               {completedLectures} / {totalLectures}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
-              Chuyên đề lý thuyết (15 Chapters)
+              {t('Theory topics (15 Chapters)', 'Chuyên đề lý thuyết (15 Chương)')}
             </p>
           </div>
         </div>

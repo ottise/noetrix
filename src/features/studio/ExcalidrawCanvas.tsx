@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { db, createId, getLocalDateStr } from '../../db/database';
+import { createId } from '../../db/database';
 import { awardXp } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
 import { saveMediaLocalAndMaybeUpload } from '../../lib/media';
@@ -1680,24 +1680,12 @@ export function ExcalidrawCanvas() {
       const saved = await saveMediaLocalAndMaybeUpload('image', blob, fileName, {
         subFolder: 'whiteboards',
       });
-
-      await db.hobbyLogs.put({
-        id: createId('hb'),
-        type: 'drawing',
-        date: getLocalDateStr(),
-        title: `Sơ đồ / Bản vẽ: ${activeBoard.title}`,
-        durationMinutes: 30,
-        details: `Thiết kế trên NOETRIX Excalidraw Canvas (${activeBoard.elements.length} phần tử).`,
-        imageMediaId: saved.mediaId,
-        imageRemoteUrl: saved.remoteUrl,
-        createdAt: Date.now(),
-      });
       await awardXp(30);
 
       if (saved.provider === 'cloudinary') {
-        showToast('Đã lưu bản vẽ trực tiếp lên Cloudinary & Sổ tay Vẽ');
+        showToast('Đã lưu ảnh bảng vẽ trực tiếp lên Cloudinary');
       } else {
-        showToast('Đã lưu bản vẽ vào Sổ tay Vẽ');
+        showToast('Đã lưu ảnh bảng vẽ vào kho Studio');
       }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Lỗi lưu bản vẽ', 'error');

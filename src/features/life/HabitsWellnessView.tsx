@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getLocalDateStr } from '../../db/database';
 import { awardXp } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import type { CodePillar, DailyLog } from '../../types';
 import { CheckDot, useToast } from '../../components/ui/Primitives';
 
@@ -25,6 +26,7 @@ const GYM_SPLITS = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Card
  */
 export function HabitsWellnessView() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const todayStr = getLocalDateStr();
   const allLogs = useLiveQuery(() => db.dailyLogs.toArray()) || [];
 
@@ -76,13 +78,16 @@ export function HabitsWellnessView() {
         }}
       >
         <p className="editorial-eyebrow" style={{ color: 'var(--os-brass)' }}>
-          A Small Moment From Your Journal
+          {t('A Small Moment From Your Journal', 'Một Khoảnh Khắc Nhỏ Trong Nhật Ký')}
         </p>
         <textarea
           rows={3}
           value={todayLog.dailyNote}
           onChange={(e) => upsertToday({ dailyNote: e.target.value })}
-          placeholder="“Today I managed to spend some time reading instead of scrolling.” — Write a quiet line from your day..."
+          placeholder={t(
+            '“Today I managed to spend some time reading instead of scrolling.” — Write a quiet line from your day...',
+            '“Hôm nay mình đã dành thời gian đọc sách thay vì lướt mạng vô thức.” — Viết một dòng tĩnh lặng cho hôm nay...'
+          )}
           className="w-full bg-transparent font-editorial-vi text-[21px] sm:text-[24px] leading-snug resize-none placeholder:opacity-45"
           style={{ color: 'var(--os-ivory-bright)' }}
         />
@@ -100,21 +105,24 @@ export function HabitsWellnessView() {
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="editorial-eyebrow">Movement</span>
+              <span className="editorial-eyebrow">{t('Movement', 'Vận động')}</span>
               <button
                 type="button"
-                onClick={() => toggleHabit('gymDone', 30, 'Movement & Gym')}
+                onClick={() => toggleHabit('gymDone', 30, t('Movement & Gym', 'Vận động & Gym'))}
                 className="inline-flex items-center gap-2 text-[13px] cursor-pointer"
                 style={{ color: todayLog.gymDone ? 'var(--os-sage)' : 'var(--os-ivory-muted)' }}
               >
                 <CheckDot checked={todayLog.gymDone} size="sm" />
-                <span>{todayLog.gymDone ? 'Completed today' : 'Mark session'}</span>
+                <span>{todayLog.gymDone ? t('Completed today', 'Đã tập hôm nay') : t('Mark session', 'Đánh dấu buổi tập')}</span>
               </button>
             </div>
 
-            <h3 className="editorial-h2">Gym & Physical Rhythm</h3>
+            <h3 className="editorial-h2">{t('Gym & Physical Rhythm', 'Gym & Nhịp Vận Động')}</h3>
             <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-              Chăm sóc cơ thể ngoài màn hình. Chọn nhóm cơ hoặc hình thức vận động của buổi tập hôm nay.
+              {t(
+                'Take care of your body away from the screen. Pick today’s muscle group or movement focus.',
+                'Chăm sóc cơ thể ngoài màn hình. Chọn nhóm cơ hoặc hình thức vận động của buổi tập hôm nay.'
+              )}
             </p>
           </div>
 
@@ -152,8 +160,8 @@ export function HabitsWellnessView() {
           }}
         >
           <div className="space-y-3">
-            <span className="editorial-eyebrow">Daily Craft</span>
-            <h3 className="editorial-h2">Code & Language</h3>
+            <span className="editorial-eyebrow">{t('Daily Craft', 'Rèn Luyện Hằng Ngày')}</span>
+            <h3 className="editorial-h2">{t('Code & Language', 'Lập Trình & Ngoại Ngữ')}</h3>
 
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
@@ -164,7 +172,7 @@ export function HabitsWellnessView() {
                   style={{ color: 'var(--os-ivory-bright)' }}
                 >
                   <CheckDot checked={todayLog.codeDone} size="sm" />
-                  <span>Deep Coding ({todayLog.codeMinutes || 0} min)</span>
+                  <span>{t(`Deep Coding (${todayLog.codeMinutes || 0} min)`, `Deep Coding (${todayLog.codeMinutes || 0} phút)`)}</span>
                 </button>
                 <div className="flex items-center gap-1.5 text-[12px]">
                   <button
@@ -173,7 +181,7 @@ export function HabitsWellnessView() {
                     className="px-2.5 py-1 rounded-full ios-fill cursor-pointer"
                     style={{ color: 'var(--os-brass)' }}
                   >
-                    +30m
+                    {t('+30m', '+30p')}
                   </button>
                 </div>
               </div>
@@ -209,18 +217,21 @@ export function HabitsWellnessView() {
           <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--os-border)' }}>
             <button
               type="button"
-              onClick={() => toggleHabit('englishDone', 25, 'English Practice')}
+              onClick={() => toggleHabit('englishDone', 25, t('English Practice', 'Luyện Tiếng Anh'))}
               className="inline-flex items-center gap-2.5 text-[14.5px] cursor-pointer"
               style={{ color: 'var(--os-ivory-bright)' }}
             >
               <CheckDot checked={todayLog.englishDone} size="sm" />
-              <span>Active English Practice</span>
+              <span>{t('Active English Practice', 'Luyện Tiếng Anh chủ động')}</span>
             </button>
             <input
               type="text"
               value={todayLog.englishNote}
               onChange={(e) => upsertToday({ englishNote: e.target.value })}
-              placeholder="Notes from today's reading or shadowing..."
+              placeholder={t(
+                "Notes from today's reading or shadowing...",
+                'Ghi chú từ buổi đọc hoặc luyện shadowing hôm nay...'
+              )}
               className="w-full px-3 py-2 rounded-[9px] text-[13px]"
               style={{
                 backgroundColor: 'var(--os-obsidian)',

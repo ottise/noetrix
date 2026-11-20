@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { db, createId, getLocalDateStr, addDaysStr } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import { persistAllDataToSourceCode, scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { Modal, useToast } from '../../components/ui/Primitives';
 import {
@@ -85,6 +86,7 @@ const inputBaseStyle: React.CSSProperties = {
 
 export function PsychologyPipeline() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [state, setState] = useState<PersonalResearchJournalState>(() => loadResearchJournalState());
   const [phaseFilter, setPhaseFilter] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [customTagInput, setCustomTagInput] = useState('');
@@ -555,7 +557,7 @@ export function PsychologyPipeline() {
               className="font-editorial text-[20px] leading-snug"
               style={{ color: 'var(--os-ivory-bright)' }}
             >
-              {activeProject.title || 'Untitled Research Study'}
+              {activeProject.title || t('Untitled Research Study', 'Đề tài nghiên cứu chưa đặt tên')}
             </h2>
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -566,7 +568,7 @@ export function PsychologyPipeline() {
 
             <div className="flex items-center justify-between pt-1">
               <span className="metadata text-[11px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                {completedCount} / 12 sections
+                {completedCount} / 12 {t('sections', 'mục')}
               </span>
 
               {/* Project Switcher & Create */}
@@ -577,7 +579,7 @@ export function PsychologyPipeline() {
                     onChange={(e) =>
                       setState((prev) => ({ ...prev, lastActiveResearchId: e.target.value }))
                     }
-                    title="Chuyển đề tài nghiên cứu"
+                    title={t('Switch research project', 'Chuyển đề tài nghiên cứu')}
                     className="px-2 py-1 rounded-[5px] text-[11px] max-w-[115px] truncate cursor-pointer"
                     style={{
                       backgroundColor: '#101114',
@@ -601,7 +603,7 @@ export function PsychologyPipeline() {
                     border: '1px solid rgba(185, 155, 121, 0.3)',
                   }}
                 >
-                  + Đề tài mới
+                  {t('+ New Study', '+ Đề tài mới')}
                 </button>
               </div>
             </div>
@@ -610,7 +612,7 @@ export function PsychologyPipeline() {
           {/* 5-Stage Practical Phase Filter (Non-locking helper) */}
           <div className="space-y-1.5">
             <span className="metadata text-[9.5px] uppercase tracking-[0.12em] block" style={{ color: 'var(--os-ivory-faint)' }}>
-              GIAI ĐOẠN THỰC HIỆN (TÙY CHỌN LỌC)
+              {t('WORKFLOW PHASES (OPTIONAL FILTER)', 'GIAI ĐOẠN THỰC HIỆN (TÙY CHỌN LỌC)')}
             </span>
             <div className="flex flex-wrap gap-1">
               <button
@@ -626,7 +628,7 @@ export function PsychologyPipeline() {
                       : '1px solid transparent',
                 }}
               >
-                All (12)
+                {t('All (12)', 'Tất cả (12)')}
               </button>
               {RESEARCH_PHASES.map((ph) => {
                 const active = phaseFilter === ph.phase;
@@ -645,7 +647,7 @@ export function PsychologyPipeline() {
                         : '1px solid transparent',
                     }}
                   >
-                    Đợt {ph.phase}
+                    {t(`Phase ${ph.phase}`, `Đợt ${ph.phase}`)}
                   </button>
                 );
               })}
@@ -655,7 +657,7 @@ export function PsychologyPipeline() {
           {/* 12 Core Research Sections */}
           <nav aria-label="Research Sections" className="space-y-1">
             <p className="metadata text-[10px] uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--os-ivory-faint)' }}>
-              RESEARCH SECTIONS
+              {t('RESEARCH SECTIONS', 'CÁC MỤC NGHIÊN CỨU')}
             </p>
             {visibleSections.map((sec) => {
               const isActive =

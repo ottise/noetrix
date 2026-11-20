@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createId, getLocalDateStr } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { Modal, useToast } from '../../components/ui/Primitives';
 import {
@@ -166,6 +167,7 @@ export function NetworkingLab({
   onJumpToOsTopic?: (osTopicId: string) => void;
 }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [state, setState] = useState<NetKnowledgeBaseState>(() => loadNetState());
   const [searchQuery, setSearchQuery] = useState('');
   const [curriculumFilter, setCurriculumFilter] = useState<
@@ -438,10 +440,13 @@ export function NetworkingLab({
               </span>
             </div>
             <h2 className="font-editorial text-[30px] sm:text-[36px] leading-tight" style={{ color: '#EDEAE2' }}>
-              Computer Networking
+              {t('Computer Networking', 'Mạng Máy Tính (Networking)')}
             </h2>
             <p className="text-[13.5px] max-w-2xl" style={{ color: 'var(--os-ivory-muted)' }}>
-              Understanding how devices communicate, exchange data, and build interconnected systems — nền tảng cho Backend API, Cloud VPC, Kubernetes và Security.
+              {t(
+                'Understanding how devices communicate, exchange data, and build interconnected systems — foundations for Backend APIs, Cloud VPC, Kubernetes, and Security.',
+                'Hiểu cách thiết bị giao tiếp, trao đổi dữ liệu và xây dựng hệ thống kết nối — nền tảng cho Backend API, Cloud VPC, Kubernetes và Bảo mật.'
+              )}
             </p>
           </div>
 
@@ -451,7 +456,7 @@ export function NetworkingLab({
                 {NET_MODULES.length}
               </p>
               <p className="metadata text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--os-ivory-faint)' }}>
-                Core modules
+                {t('Core modules', 'Chương cốt lõi')}
               </p>
             </div>
             <div className="w-[1px] h-8 bg-[rgba(217,213,203,0.1)]" />
@@ -460,7 +465,7 @@ export function NetworkingLab({
                 {state.topics.length}+
               </p>
               <p className="metadata text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--os-ivory-faint)' }}>
-                Topics
+                {t('Topics', 'Chủ đề')}
               </p>
             </div>
             <div className="w-[1px] h-8 bg-[rgba(217,213,203,0.1)]" />
@@ -469,7 +474,7 @@ export function NetworkingLab({
                 ∞
               </p>
               <p className="metadata text-[10px] uppercase tracking-[0.08em]" style={{ color: 'var(--os-ivory-faint)' }}>
-                Research notes ({state.researchNotes.length})
+                {t(`Research notes (${state.researchNotes.length})`, `Ghi chú nghiên cứu (${state.researchNotes.length})`)}
               </p>
             </div>
           </div>
@@ -480,13 +485,13 @@ export function NetworkingLab({
           <nav aria-label="Networking Knowledge Base Tabs" className="flex items-center gap-1.5 flex-wrap">
             {(
               [
-                ['dashboard', 'Dashboard'],
-                ['curriculum', 'Curriculum & Theory'],
-                ['packets_cli', 'Packet & Command Lab'],
-                ['topology', 'Topology Simulator'],
-                ['comparisons', 'Comparison Tables'],
+                ['dashboard', t('Dashboard', 'Tổng quan')],
+                ['curriculum', t('Curriculum & Theory', 'Giáo trình & Lý thuyết')],
+                ['packets_cli', t('Packet & Command Lab', 'Phân tích Gói tin & Lệnh')],
+                ['topology', t('Topology Simulator', 'Mô phỏng Topology')],
+                ['comparisons', t('Comparison Tables', 'Bảng so sánh')],
                 ['flashcards', `Flashcards (${state.flashcards.length})`],
-                ['notes', `Notes & Revisions (${state.researchNotes.length})`],
+                ['notes', t(`Notes & Revisions (${state.researchNotes.length})`, `Ghi chú & Ôn tập (${state.researchNotes.length})`)],
               ] as const
             ).map(([id, label]) => {
               const active = state.activeTab === id;
@@ -602,66 +607,24 @@ export function NetworkingLab({
                 <span className="metadata text-[11px]" style={{ color: 'var(--os-ivory-faint)' }}>
                   Module {activeModule.code}: {activeModule.title}
                 </span>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => openTopic(activeTopic.id)}
                   className="px-4 py-2 rounded-[8px] text-[12.5px] font-semibold cursor-pointer"
                   style={{ backgroundColor: '#A7B6D2', color: '#101114' }}
                 >
-                  Mở Topic Workspace (16 mục) →
+                  Mở Topic Workspace →
                 </button>
-              </div>
-            </div>
-
-            <div
-              className="lg:col-span-5 rounded-[12px] p-5 space-y-4"
-              style={{ backgroundColor: '#14161C', border: '1px solid rgba(217, 213, 203, 0.08)' }}
-            >
-              <p className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
-                STUDY STATISTICS
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 rounded-[9px]" style={{ backgroundColor: '#101114' }}>
-                  <p className="font-editorial text-[22px]" style={{ color: '#9BAA98' }}>
-                    {completedTopics.length}
-                  </p>
-                  <p className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    Completed
-                  </p>
-                </div>
-                <div className="p-3 rounded-[9px]" style={{ backgroundColor: '#101114' }}>
-                  <p className="font-editorial text-[22px]" style={{ color: '#B99B79' }}>
-                    {learningTopics.length}
-                  </p>
-                  <p className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    Learning
-                  </p>
-                </div>
-                <div className="p-3 rounded-[9px]" style={{ backgroundColor: '#101114' }}>
-                  <p className="font-editorial text-[22px]" style={{ color: '#EDEAE2' }}>
-                    {state.topics.length - completedTopics.length - learningTopics.length}
-                  </p>
-                  <p className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    Not Started
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-[12px] pt-1">
-                <span style={{ color: 'var(--os-ivory-muted)' }}>
-                  Bookmarked: <strong style={{ color: '#B99B79' }}>{bookmarkedTopics.length}</strong>
-                </span>
-                <span style={{ color: 'var(--os-ivory-muted)' }}>
-                  Weak to revisit: <strong style={{ color: '#C98A82' }}>{weakTopics.length}</strong>
-                </span>
                 <button
                   type="button"
                   onClick={() => setAddTopicOpen(true)}
-                  className="text-[11.5px] font-medium hover:underline cursor-pointer"
-                  style={{ color: '#A7B6D2' }}
+                  className="px-3.5 py-2 rounded-[8px] text-[12px] font-medium cursor-pointer border border-[#2a3140] text-[#A7B6D2] hover:bg-[#1a1f29]"
                 >
                   + Thêm Topic
                 </button>
               </div>
+            </div>
             </div>
           </div>
 

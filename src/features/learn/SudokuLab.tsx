@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createId, getLocalDateStr, formatShortDate } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import type { SudokuRun, SudokuTechnique } from '../../types';
 import { Modal, useToast } from '../../components/ui/Primitives';
+import { SudokuTechniqueIllustration } from './SudokuDiagram';
 
 type SudokuSection = 'overview' | 'path' | 'lesson' | 'practice' | 'journal' | 'library';
 
@@ -367,6 +369,7 @@ function InteractiveSudokuBoard() {
 
 export function SudokuLab() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const techniques = useLiveQuery(() => db.sudokuTechniques.toArray()) || [];
   const runs = useLiveQuery(() => db.sudokuRuns.orderBy('createdAt').reverse().toArray()) || [];
 
@@ -453,10 +456,10 @@ export function SudokuLab() {
       <div className="flex items-center gap-1.5 flex-wrap">
         {(
           [
-            ['path', 'Curriculum'],
-            ['practice', 'Practice Board'],
-            ['journal', 'Run Journal'],
-            ['library', 'Library'],
+            ['path', t('Curriculum', 'Giáo trình')],
+            ['practice', t('Practice Board', 'Bàn cờ thực hành')],
+            ['journal', t('Run Journal', 'Nhật ký giải')],
+            ['library', t('Library', 'Tài liệu')],
           ] as const
         ).map(([sec, lbl]) => (
           <button
@@ -486,11 +489,14 @@ export function SudokuLab() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--os-border)]">
           <div className="space-y-1">
             <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-dusty-blue)' }}>
-              SUDOKU · FROM LOGIC TO MASTERY
+              {t('SUDOKU · FROM LOGIC TO MASTERY', 'SUDOKU · TỪ LOGIC ĐẾN TINH THÔNG')}
             </span>
-            <h2 className="editorial-h2">Prove before you place.</h2>
+            <h2 className="editorial-h2">{t('Prove before you place.', 'Chứng minh trước khi đặt số.')}</h2>
             <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              Đoán mò phá hủy mục tiêu rèn tư duy. Mọi nước đi đều phải chứng minh được bằng logic.
+              {t(
+                'Guessing undermines pure deduction. Every placement must be provable by logic.',
+                'Đoán mò phá hủy mục tiêu rèn tư duy. Mọi nước đi đều phải chứng minh được bằng logic.'
+              )}
             </p>
           </div>
 
@@ -500,16 +506,16 @@ export function SudokuLab() {
                 {masteredCount} <span className="text-[14px]" style={{ color: 'var(--os-ivory-faint)' }}>/ {sortedTechniques.length}</span>
               </p>
               <p className="metadata text-[9.5px] uppercase mt-1" style={{ color: 'var(--os-ivory-faint)' }}>
-                Techniques Mastered
+                {t('Techniques Mastered', 'Kỹ thuật thành thạo')}
               </p>
             </div>
             <div className="h-7 w-[1px] bg-[var(--os-border)]" />
             <div>
               <p className="font-editorial text-[16px] leading-none" style={{ color: runs.length > 0 ? 'var(--os-sage)' : 'var(--os-ivory-muted)' }}>
-                {runs.length > 0 ? `${runs.length} Runs Logged` : 'No runs recorded'}
+                {runs.length > 0 ? t(`${runs.length} Runs Logged`, `${runs.length} Ván đã ghi`) : t('No runs recorded', 'Chưa ghi ván nào')}
               </p>
               <p className="metadata text-[9.5px] uppercase mt-1.5" style={{ color: 'var(--os-ivory-faint)' }}>
-                Run Journal
+                {t('Run Journal', 'Nhật ký giải')}
               </p>
             </div>
           </div>
@@ -523,7 +529,7 @@ export function SudokuLab() {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                ● CURRENT TECHNIQUE · RESUME STUDY
+                {t('● CURRENT TECHNIQUE · RESUME STUDY', '● KỸ THUẬT HIỆN TẠI · HỌC TIẾP')}
               </span>
               <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-ivory-faint)' }}>
                 {activeTech.difficultyRange || activeTech.tier}
@@ -545,7 +551,7 @@ export function SudokuLab() {
                 className="px-4 py-2 rounded-[9px] text-[13px] font-medium cursor-pointer"
                 style={{ backgroundColor: 'var(--os-ivory-bright)', color: 'var(--os-obsidian)' }}
               >
-                Open Technique Workspace →
+                {t('Open Technique Workspace →', 'Mở Không gian Kỹ thuật →')}
               </button>
               <button
                 type="button"
@@ -687,7 +693,7 @@ export function SudokuLab() {
             className="metadata text-[10.5px] uppercase tracking-[0.12em] hover:underline cursor-pointer"
             style={{ color: 'var(--os-ivory-muted)' }}
           >
-            ← BACK TO CURRICULUM
+            {t('← BACK TO CURRICULUM', '← QUAY LẠI GIÁO TRÌNH')}
           </button>
 
           <div className="flex gap-1.5">
@@ -711,34 +717,49 @@ export function SudokuLab() {
 
         <h2 className="editorial-h2">{formatArrows(activeTech.name)}</h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-6 space-y-4">
             <div className="p-4 rounded-[10px] space-y-1.5" style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)' }}>
-              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-brass)' }}>BẢN CHẤT LOGIC</span>
+              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-brass)' }}>
+                {t('CORE LOGIC', 'BẢN CHẤT LOGIC')}
+              </span>
               <p className="text-[14px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>{formatArrows(activeTech.summary)}</p>
             </div>
             <div className="p-4 rounded-[10px] space-y-1.5" style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)' }}>
-              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-dusty-blue)' }}>CÁCH NHẬN DIỆN TRÊN BẢNG</span>
+              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-dusty-blue)' }}>
+                {t('HOW TO SPOT ON THE BOARD', 'CÁCH NHẬN DIỆN TRÊN BẢNG')}
+              </span>
               <p className="text-[14px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>{formatArrows(activeTech.howToSpot)}</p>
             </div>
             {activeTech.example && (
               <div className="p-4 rounded-[10px] space-y-1.5" style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)' }}>
-                <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-sage)' }}>VÍ DỤ MINH HỌA</span>
+                <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-sage)' }}>
+                  {t('WORKED EXAMPLE', 'VÍ DỤ MINH HỌA')}
+                </span>
                 <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>{formatArrows(activeTech.example)}</p>
               </div>
             )}
+
+            <div className="space-y-2.5 pt-1">
+              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-brass)' }}>
+                {t('YOUR NOTES & EXPLANATION', 'GHI CHÚ & DIỄN GIẢI CỦA BẠN')}
+              </span>
+              <textarea
+                rows={5}
+                value={activeTech.notes}
+                onChange={(e) => db.sudokuTechniques.update(activeTech.id, { notes: e.target.value, updatedAt: Date.now() })}
+                placeholder={t(
+                  'Write quick spotting cues for this technique in your own words...',
+                  'Ghi chú lại dấu hiệu soi nhanh kỹ thuật này theo ngôn ngữ của bạn...'
+                )}
+                className="w-full p-4 rounded-[10px] text-[13.5px] leading-relaxed"
+                style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)', color: 'var(--os-ivory)' }}
+              />
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-brass)' }}>YOUR NOTES & EXPLANATION</span>
-            <textarea
-              rows={8}
-              value={activeTech.notes}
-              onChange={(e) => db.sudokuTechniques.update(activeTech.id, { notes: e.target.value, updatedAt: Date.now() })}
-              placeholder="Ghi chú lại dấu hiệu soi nhanh kỹ thuật này theo ngôn ngữ của bạn..."
-              className="w-full p-4 rounded-[10px] text-[13.5px] leading-relaxed"
-              style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)', color: 'var(--os-ivory)' }}
-            />
+          <div className="lg:col-span-6">
+            <SudokuTechniqueIllustration techId={activeTech.id} />
           </div>
         </div>
       </div>

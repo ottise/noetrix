@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
+import { useLanguage } from '../lib/i18n';
 import type { WorkspaceId } from '../types';
 import { IOSListGroup, Modal } from './ui/Primitives';
 import { SFChevronRight } from './ui/SFSymbols';
@@ -23,6 +24,7 @@ export function GlobalSearchModal({
   onClose: () => void;
   onSelect: (workspace: WorkspaceId, sub?: string) => void;
 }) {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
 
   const tasks = useLiveQuery(() => db.tasks.toArray(), [open]) || [];
@@ -38,13 +40,13 @@ export function GlobalSearchModal({
     const q = query.trim().toLowerCase();
     const hits: SearchHit[] = [];
 
-    for (const t of tasks) {
-      if (!q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) {
+    for (const tk of tasks) {
+      if (!q || tk.title.toLowerCase().includes(q) || tk.description.toLowerCase().includes(q)) {
         hits.push({
-          id: t.id,
-          domain: 'Task',
-          title: t.title,
-          subtitle: t.isTodayFocus ? 'Today’s Focus' : t.status,
+          id: tk.id,
+          domain: t('Task', 'Công việc'),
+          title: tk.title,
+          subtitle: tk.isTodayFocus ? t('Today’s Focus', 'Trọng tâm hôm nay') : tk.status,
           workspace: 'home',
         });
       }
@@ -60,10 +62,11 @@ export function GlobalSearchModal({
       ) {
         hits.push({
           id: l.id,
-          domain: 'Workflow Vault',
+          domain: t('Workflow Vault', 'AI Workflow Studio'),
           title: l.title,
-          subtitle: `${l.images.length} ảnh · ${l.audios.length} audio`,
-          workspace: 'knowledge',
+          subtitle: `${l.images.length} ${t('images', 'ảnh')} · ${l.audios.length} audio`,
+          workspace: 'creative',
+          sub: 'lectures',
         });
       }
     }
@@ -76,7 +79,7 @@ export function GlobalSearchModal({
       ) {
         hits.push({
           id: p.id,
-          domain: 'IG Tâm lý',
+          domain: t('Psychology Research', 'Nghiên cứu Tâm lý'),
           title: p.title,
           subtitle: p.behaviorConcept || p.status,
           workspace: 'creative',
@@ -100,7 +103,7 @@ export function GlobalSearchModal({
       if (!q || ch.title.toLowerCase().includes(q) || ch.notes.toLowerCase().includes(q)) {
         hits.push({
           id: ch.id,
-          domain: 'Cờ Vua',
+          domain: t('Chess Room', 'Cờ Vua'),
           title: ch.title,
           subtitle: ch.phaseTitle,
           workspace: 'learning',
@@ -124,11 +127,10 @@ export function GlobalSearchModal({
       if (!q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)) {
         hits.push({
           id: b.id,
-          domain: 'Tủ Sách',
+          domain: t('Bookshelf', 'Tủ Sách'),
           title: b.title,
-          subtitle: `${b.author} · ${b.currentPage}/${b.totalPages} trang`,
-          workspace: 'life',
-          sub: 'books',
+          subtitle: `${b.author} · ${b.currentPage}/${b.totalPages} ${t('pages', 'trang')}`,
+          workspace: 'knowledge',
         });
       }
     }
@@ -136,9 +138,9 @@ export function GlobalSearchModal({
       if (!q || s.title.toLowerCase().includes(q) || s.synopsis.toLowerCase().includes(q)) {
         hits.push({
           id: s.id,
-          domain: 'Viết Truyện',
+          domain: t('Writing Room', 'Viết Truyện'),
           title: s.title,
-          subtitle: `${s.chapters.length} chương`,
+          subtitle: `${s.chapters.length} ${t('chapters', 'chương')}`,
           workspace: 'creative',
           sub: 'stories',
         });
@@ -146,26 +148,35 @@ export function GlobalSearchModal({
     }
 
     return hits.slice(0, 24);
-  }, [query, tasks, lectures, psych, topics, chess, sudoku, books, stories]);
+  }, [query, tasks, lectures, psych, topics, chess, sudoku, books, stories, t]);
 
   return (
-    <Modal open={open} onClose={onClose} title="Tìm kiếm nhanh (Ctrl + K)">
+    <Modal open={open} onClose={onClose} title={t('Command Palette (Ctrl + K)', 'Tìm kiếm nhanh (Ctrl + K)')}>
       <div className="space-y-4">
         <input
           type="text"
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm task, bài giảng workflow, bài tâm lý, code, sách, truyện..."
+          placeholder={t(
+            'Search tasks, lectures, psychology research, code, books, stories...',
+            'Tìm task, bài giảng workflow, bài tâm lý, code, sách, truyện...'
+          )}
           className="w-full px-3.5 py-2.5 rounded-[10px] ios-fill text-[15px] placeholder:text-[var(--ios-label-tertiary)]"
         />
 
         {results.length === 0 ? (
           <p className="text-[14px] text-center text-[var(--ios-label-secondary)] py-6">
-            Không tìm thấy kết quả khớp với “{query}”.
+            {t(`No results matching “${query}”.`, `Không tìm thấy kết quả khớp với “${query}”.`)}
           </p>
         ) : (
-          <IOSListGroup header={query.trim() ? `Kết quả (${results.length})` : 'Truy cập gần đây'}>
+          <IOSListGroup
+            header={
+              query.trim()
+                ? t(`Results (${results.length})`, `Kết quả (${results.length})`)
+                : t('Recently accessed', 'Truy cập gần đây')
+            }
+          >
             {results.map((hit) => (
               <button
                 key={`${hit.domain}_${hit.id}`}

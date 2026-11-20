@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getLocalDateStr, diffDaysFromToday, formatShortDate } from '../../db/database';
+import { purgeLegacyMockSchedule } from '../../db/seed';
 import { awardXp } from '../../lib/gamification';
 import { buildAndPersistWidgetSnapshot } from '../../lib/ambient';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage, type AppLanguage } from '../../lib/i18n';
 import type { DailyLog, TaskCategory, TaskItem, WorkspaceId } from '../../types';
 import { CheckDot, useToast } from '../../components/ui/Primitives';
 
-const CATEGORY_COPY: Record<TaskCategory, string> = {
+const CATEGORY_COPY_EN: Record<TaskCategory, string> = {
   learning: 'Continue learning',
   publishing: 'Continue publishing',
   health: 'Move & restore',
@@ -15,60 +17,28 @@ const CATEGORY_COPY: Record<TaskCategory, string> = {
   life: 'Personal rhythm',
 };
 
+const CATEGORY_COPY_VI: Record<TaskCategory, string> = {
+  learning: 'Tiếp tục học tập',
+  publishing: 'Tiếp tục xuất bản',
+  health: 'Vận động & phục hồi',
+  creative: 'Tiếp tục sáng tạo',
+  life: 'Nhịp sống cá nhân',
+};
+
 const CATEGORY_ROOM: Record<TaskCategory, { ws: WorkspaceId; sub?: string }> = {
   learning: { ws: 'learning', sub: 'code' },
   publishing: { ws: 'creative', sub: 'psychology' },
   health: { ws: 'life', sub: 'habits' },
   creative: { ws: 'creative', sub: 'stories' },
-  life: { ws: 'life', sub: 'books' },
+  life: { ws: 'life', sub: 'habits' },
 };
 
-const WORLD_ROOMS: {
-  id: string;
-  title: string;
-  subtitle: string;
-  image: string;
-  workspace: WorkspaceId;
-  sub?: string;
-}[] = [
-  {
-    id: 'library',
-    title: 'The Library',
-    subtitle: 'Read & discover',
-    image: '/art/room-library.jpg',
-    workspace: 'knowledge',
-  },
-  {
-    id: 'studio',
-    title: 'The Studio',
-    subtitle: 'Write & create',
-    image: '/art/room-studio.jpg',
-    workspace: 'creative',
-    sub: 'psychology',
-  },
-  {
-    id: 'lab',
-    title: 'The Lab',
-    subtitle: 'Learn & experiment',
-    image: '/art/room-lab.jpg',
-    workspace: 'learning',
-    sub: 'code',
-  },
-  {
-    id: 'playground',
-    title: 'The Playground',
-    subtitle: 'Play & explore',
-    image: '/art/room-playground.jpg',
-    workspace: 'playground',
-    sub: 'wheel',
-  },
-];
-
-function getEditorialDateEyebrow(): string {
+function getEditorialDateEyebrow(lang: AppLanguage): string {
   const d = new Date();
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(d).toUpperCase();
-  const month = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(d).toUpperCase();
-  return `${weekday} · ${month} ${d.getDate()}`;
+  const locale = lang === 'en' ? 'en-US' : 'vi-VN';
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d).toUpperCase();
+  const month = new Intl.DateTimeFormat(locale, { month: 'long' }).format(d).toUpperCase();
+  return `${weekday} · ${d.getDate()} ${month}`;
 }
 
 function padTwo(n: number): string {
@@ -92,9 +62,48 @@ export function TodayView({
   onOpenManifesto?: () => void;
 }) {
   const { showToast } = useToast();
+  const { lang, t } = useLanguage();
+  const CATEGORY_COPY = lang === 'en' ? CATEGORY_COPY_EN : CATEGORY_COPY_VI;
+  const WORLD_ROOMS = [
+    {
+      id: 'library',
+      title: t('The Library', 'Thư Viện'),
+      subtitle: t('Read & discover', 'Đọc & khám phá'),
+      image: '/art/room-library.jpg',
+      workspace: 'knowledge' as WorkspaceId,
+    },
+    {
+      id: 'studio',
+      title: t('The Studio', 'Studio'),
+      subtitle: t('Write & create', 'Viết & sáng tạo'),
+      image: '/art/room-studio.jpg',
+      workspace: 'creative' as WorkspaceId,
+      sub: 'psychology',
+    },
+    {
+      id: 'lab',
+      title: 'The Lab',
+      subtitle: t('Learn & experiment', 'Học & thực nghiệm'),
+      image: '/art/room-lab.jpg',
+      workspace: 'learning' as WorkspaceId,
+      sub: 'code',
+    },
+    {
+      id: 'playground',
+      title: t('The Playground', 'Sân Chơi'),
+      subtitle: t('Play & explore', 'Chơi & khám phá'),
+      image: '/art/room-playground.jpg',
+      workspace: 'playground' as WorkspaceId,
+      sub: 'wheel',
+    },
+  ];
   const todayStr = getLocalDateStr();
   const [showInbox, setShowInbox] = useState(false);
   const [inboxFilter, setInboxFilter] = useState<'active' | 'completed'>('active');
+
+  useEffect(() => {
+    purgeLegacyMockSchedule().catch(() => {});
+  }, []);
 
   const profile = useLiveQuery(() => db.profile.get('main'));
   const rawTasks = useLiveQuery(() => db.tasks.toArray()) || [];
@@ -175,18 +184,21 @@ export function TodayView({
       updatedAt: Date.now(),
     });
     await awardXp(willComplete ? 25 : -25);
-    if (willComplete) showToast(`Đã hoàn thành · ${task.title}`);
+    if (willComplete) showToast(t(`Completed · ${task.title}`, `Đã hoàn thành · ${task.title}`));
   };
 
   const toggleFocusPin = async (task: TaskItem) => {
     triggerHaptic('selection');
     if (task.isTodayFocus) {
       await db.tasks.update(task.id, { isTodayFocus: false, updatedAt: Date.now() });
-      showToast('Đã bỏ khỏi 3 việc hôm nay', 'info');
+      showToast(t('Removed from Today’s Focus', 'Đã bỏ khỏi 3 việc hôm nay'), 'info');
       return;
     }
     if (focusTasks.length >= 3) {
-      showToast('Giữ tối đa 3 việc quan trọng trong ngày để không bị phân tán.', 'info');
+      showToast(
+        t('Keep at most 3 focus items today to avoid fragmentation.', 'Giữ tối đa 3 việc quan trọng trong ngày để không bị phân tán.'),
+        'info'
+      );
       return;
     }
     await db.tasks.update(task.id, {
@@ -195,7 +207,7 @@ export function TodayView({
       scheduledDate: todayStr,
       updatedAt: Date.now(),
     });
-    showToast('Đã đưa vào 3 việc hôm nay');
+    showToast(t('Pinned to Today’s Focus', 'Đã đưa vào 3 việc hôm nay'));
   };
 
   const balance = {
@@ -224,8 +236,8 @@ export function TodayView({
 
   const formatDaysShort = (days: number | null) => {
     if (days === null) return '—';
-    if (days < 0) return `Trễ ${Math.abs(days)}d`;
-    if (days === 0) return 'Hôm nay';
+    if (days < 0) return t(`${Math.abs(days)}d late`, `Trễ ${Math.abs(days)}d`);
+    if (days === 0) return t('Today', 'Hôm nay');
     return `${days}d`;
   };
 
@@ -242,10 +254,10 @@ export function TodayView({
                 className="metadata text-[11px] tracking-[0.08em]"
                 style={{ color: 'var(--os-brass)' }}
               >
-                01 / SYSTEM.READY
+                {t('01 / SYSTEM.READY', '01 / HỆ THỐNG.SẴN SÀNG')}
               </span>
               <span style={{ color: 'var(--os-ivory-faint)' }}>·</span>
-              <p className="editorial-eyebrow">{getEditorialDateEyebrow()}</p>
+              <p className="editorial-eyebrow">{getEditorialDateEyebrow(lang)}</p>
               <span style={{ color: 'var(--os-ivory-faint)' }}>·</span>
               <button
                 type="button"
@@ -253,22 +265,25 @@ export function TodayView({
                 className="metadata text-[11px] uppercase tracking-[0.12em] hover:underline cursor-pointer"
                 style={{ color: 'var(--os-dusty-blue)' }}
               >
-                NOETRIX · THE ART OF BECOMING ↗
+                {t('NOETRIX · THE ART OF BECOMING ↗', 'NOETRIX · NGHỆ THUẬT TRỞ THÀNH ↗')}
               </button>
             </div>
             <h1 className="editorial-display">
-              A new day,
+              {t('A new day,', 'Một ngày mới,')}
               <br />
               <span style={{ color: 'var(--os-ivory)' }}>
-                a new perspective.
+                {t('a new perspective.', 'một góc nhìn mới.')}
               </span>
             </h1>
             <div className="space-y-1 max-w-xl">
               <p className="font-editorial text-[18px] sm:text-[20px]" style={{ color: 'var(--os-ivory-bright)' }}>
-                “{profile?.motto || 'Curious by nature. Mischievous by design. Pure in pursuit.'}”
+                “{profile?.motto || t('Curious by nature. Mischievous by design. Pure in pursuit.', 'Tò mò bẩm sinh. Tinh nghịch có chủ đích. Thuần khiết trong hành trình.')}”
               </p>
-              <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                A mind without boundaries, a soul without a destination.
+              <p className="text-[13.5px] italic" style={{ color: 'var(--os-ivory-muted)' }}>
+                {t(
+                  'A restless mind, an untamed imagination, and a soul forever in the making.',
+                  'Một tâm trí không ngừng trăn trở, một trí tưởng tượng không bị thuần hóa, và một tâm hồn mãi đang thành hình.'
+                )}
               </p>
             </div>
           </div>
@@ -313,20 +328,20 @@ export function TodayView({
                 className="text-[10px] font-medium uppercase tracking-[0.2em]"
                 style={{ color: '#B99B79' }}
               >
-                Your Current Focus
+                {t('Your Current Focus', 'Trọng Tâm Hiện Tại')}
               </p>
               <h2
                 className="font-editorial-vi text-[24px] sm:text-[30px] leading-[1.16] tracking-[-0.015em] font-normal truncate"
                 style={{ color: '#EDEAE2' }}
               >
-                {currentActiveFocus ? currentActiveFocus.title : 'Build your craft.'}
+                {currentActiveFocus ? currentActiveFocus.title : t('Build your craft.', 'Rèn giũa năng lực của bạn.')}
               </h2>
               <p className="text-[13px] tabular-nums" style={{ color: 'rgba(217, 213, 203, 0.72)' }}>
                 {currentActiveFocus
                   ? `${CATEGORY_COPY[currentActiveFocus.category]}${
-                      currentActiveFocus.durationMinutes ? ` · ${currentActiveFocus.durationMinutes} min` : ''
+                      currentActiveFocus.durationMinutes ? ` · ${currentActiveFocus.durationMinutes} ${t('min', 'phút')}` : ''
                     }`
-                  : 'Continue learning · 45 min'}
+                  : t('Continue learning · 45 min', 'Tiếp tục học tập · 45 phút')}
               </p>
             </div>
 
@@ -339,7 +354,7 @@ export function TodayView({
                 backdropFilter: 'blur(10px)',
               }}
             >
-              <span>Continue</span>
+              <span>{t('Continue', 'Tiếp tục')}</span>
               <span style={{ color: '#B99B79' }}>↗</span>
             </span>
           </div>
@@ -356,7 +371,7 @@ export function TodayView({
             className="flex items-baseline justify-between gap-4 pb-3.5"
             style={{ borderBottom: '1px solid var(--os-border)' }}
           >
-            <h2 className="editorial-h2">A little structure for today</h2>
+            <h2 className="editorial-h2">{t('A little structure for today', 'Một chút trật tự cho hôm nay')}</h2>
             <div className="flex items-center gap-4 shrink-0">
               <span
                 className="font-editorial text-[22px] tabular-nums"
@@ -375,7 +390,7 @@ export function TodayView({
                 className="text-[12.5px] font-medium transition-opacity hover:opacity-80 cursor-pointer"
                 style={{ color: 'var(--os-dusty-blue)' }}
               >
-                + Add
+                {t('+ Add', '+ Thêm')}
               </button>
             </div>
           </div>
@@ -390,10 +405,13 @@ export function TodayView({
               }}
             >
               <p className="font-editorial text-[22px]" style={{ color: 'var(--os-ivory-bright)' }}>
-                A clear desk.
+                {t('A clear desk.', 'Bàn làm việc gọn gàng.')}
               </p>
               <p className="text-[13.5px] max-w-xs mx-auto leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-                Chọn tối đa 3 việc quan trọng nhất để định hình nhịp sống hôm nay.
+                {t(
+                  'Pick up to 3 essential focus items to shape your rhythm today.',
+                  'Chọn tối đa 3 việc quan trọng nhất để định hình nhịp sống hôm nay.'
+                )}
               </p>
               <div className="pt-1 flex items-center justify-center gap-4 text-[13px]">
                 <button
@@ -402,7 +420,7 @@ export function TodayView({
                   className="font-medium cursor-pointer"
                   style={{ color: 'var(--os-brass)' }}
                 >
-                  + Thêm việc mới
+                  {t('+ New task', '+ Thêm việc mới')}
                 </button>
                 {openOtherCount > 0 && (
                   <button
@@ -411,7 +429,7 @@ export function TodayView({
                     className="cursor-pointer"
                     style={{ color: 'var(--os-dusty-blue)' }}
                   >
-                    Chọn từ Inbox ({openOtherCount})
+                    {t(`Pick from Inbox (${openOtherCount})`, `Chọn từ Inbox (${openOtherCount})`)}
                   </button>
                 )}
               </div>
@@ -447,8 +465,8 @@ export function TodayView({
                           style={{ color: 'var(--os-ivory-faint)' }}
                         >
                           {CATEGORY_COPY[task.category]}
-                          {task.durationMinutes ? ` · ${task.durationMinutes} min` : ''}
-                          {task.deadline ? ` · Due ${formatShortDate(task.deadline)}` : ''}
+                          {task.durationMinutes ? ` · ${task.durationMinutes} ${t('min', 'phút')}` : ''}
+                          {task.deadline ? ` · ${t('Due', 'Hạn')} ${formatShortDate(task.deadline)}` : ''}
                         </p>
                       </div>
                     </button>
@@ -459,7 +477,7 @@ export function TodayView({
                       className="text-[11.5px] opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pt-1 cursor-pointer shrink-0"
                       style={{ color: 'var(--os-ivory-faint)' }}
                     >
-                      Remove
+                      {t('Remove', 'Bỏ ghim')}
                     </button>
                   </div>
                 );
@@ -476,7 +494,9 @@ export function TodayView({
               style={{ color: 'var(--os-ivory-muted)' }}
             >
               <span>
-                {showInbox ? 'Ẩn danh sách Inbox' : `Inbox & các việc khác (${openOtherCount})`}
+                {showInbox
+                  ? t('Hide Inbox list', 'Ẩn danh sách Inbox')
+                  : t(`Inbox & other tasks (${openOtherCount})`, `Inbox & các việc khác (${openOtherCount})`)}
               </span>
               <span style={{ color: 'var(--os-ivory-faint)' }}>{showInbox ? '↑' : '↓'}</span>
             </button>
@@ -499,7 +519,7 @@ export function TodayView({
                         color: inboxFilter === 'active' ? 'var(--os-brass)' : 'var(--os-ivory-faint)',
                       }}
                     >
-                      Đang mở ({openOtherCount})
+                      {t(`Active (${openOtherCount})`, `Đang mở (${openOtherCount})`)}
                     </button>
                     <button
                       type="button"
@@ -509,7 +529,7 @@ export function TodayView({
                         color: inboxFilter === 'completed' ? 'var(--os-sage)' : 'var(--os-ivory-faint)',
                       }}
                     >
-                      Đã xong
+                      {t('Completed', 'Đã xong')}
                     </button>
                   </div>
                   <button
@@ -518,23 +538,23 @@ export function TodayView({
                     className="text-[12px] font-medium cursor-pointer"
                     style={{ color: 'var(--os-dusty-blue)' }}
                   >
-                    + New task
+                    {t('+ New task', '+ Thêm việc')}
                   </button>
                 </div>
 
                 {otherTasks.length === 0 ? (
                   <p className="text-[13px] py-2" style={{ color: 'var(--os-ivory-faint)' }}>
-                    Không có mục nào trong danh sách này.
+                    {t('No items in this list.', 'Không có mục nào trong danh sách này.')}
                   </p>
                 ) : (
                   <div className="divide-y divide-[var(--os-border)]">
-                    {otherTasks.map((t) => {
-                      const done = t.status === 'completed';
+                    {otherTasks.map((tItem) => {
+                      const done = tItem.status === 'completed';
                       return (
-                        <div key={t.id} className="py-2.5 flex items-center justify-between gap-3">
+                        <div key={tItem.id} className="py-2.5 flex items-center justify-between gap-3">
                           <button
                             type="button"
-                            onClick={() => toggleTaskDone(t)}
+                            onClick={() => toggleTaskDone(tItem)}
                             className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
                           >
                             <CheckDot checked={done} size="sm" />
@@ -542,27 +562,27 @@ export function TodayView({
                               className={`text-[14px] truncate ${done ? 'line-through opacity-45' : ''}`}
                               style={{ color: 'var(--os-ivory)' }}
                             >
-                              {t.title}
+                              {tItem.title}
                             </span>
                           </button>
                           <div className="flex items-center gap-3 text-[12px] shrink-0">
                             {!done && (
                               <button
                                 type="button"
-                                onClick={() => toggleFocusPin(t)}
+                                onClick={() => toggleFocusPin(tItem)}
                                 className="cursor-pointer"
                                 style={{ color: 'var(--os-brass)' }}
                               >
-                                Focus
+                                {t('Focus', 'Ghim')}
                               </button>
                             )}
                             <button
                               type="button"
-                              onClick={() => db.tasks.delete(t.id)}
+                              onClick={() => db.tasks.delete(tItem.id)}
                               className="cursor-pointer"
                               style={{ color: 'var(--os-ivory-faint)' }}
                             >
-                              Xóa
+                              {t('Delete', 'Xóa')}
                             </button>
                           </div>
                         </div>
@@ -586,7 +606,7 @@ export function TodayView({
           {/* Next Up */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <p className="editorial-eyebrow">Next Up</p>
+              <p className="editorial-eyebrow">{t('Next Up', 'Sắp Tới')}</p>
               {nextUp?.scheduledTime && (
                 <span
                   className="text-[13px] font-medium tabular-nums"
@@ -604,21 +624,21 @@ export function TodayView({
                   </p>
                   <p className="text-[12.5px] mt-0.5 tabular-nums" style={{ color: 'var(--os-ivory-muted)' }}>
                     {CATEGORY_COPY[nextUp.category]}
-                    {nextUp.durationMinutes ? ` · ${nextUp.durationMinutes} min` : ''}
+                    {nextUp.durationMinutes ? ` · ${nextUp.durationMinutes} ${t('min', 'phút')}` : ''}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => toggleTaskDone(nextUp)}
                   className="mt-1 cursor-pointer shrink-0"
-                  title="Hoàn thành"
+                  title={t('Complete', 'Hoàn thành')}
                 >
                   <CheckDot checked={nextUp.status === 'completed'} size="sm" />
                 </button>
               </div>
             ) : (
               <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                Không có lịch cố định sắp tới. Hãy giữ nhịp tự do.
+                {t('No scheduled session coming up. Keep an open rhythm.', 'Không có lịch cố định sắp tới. Hãy giữ nhịp tự do.')}
               </p>
             )}
           </div>
@@ -628,29 +648,29 @@ export function TodayView({
           {/* Publishing Pulse */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="editorial-eyebrow">Publishing Pulse</p>
+              <p className="editorial-eyebrow">{t('Publishing Pulse', 'Nhịp Xuất Bản')}</p>
               <button
                 type="button"
-                onClick={() => onNavigate('creative', 'calendar')}
+                onClick={() => onNavigate('home', 'calendar')}
                 className="text-[11.5px] cursor-pointer"
                 style={{ color: 'var(--os-dusty-blue)' }}
               >
-                Calendar ↗
+                {t('Calendar ↗', 'Mở Lịch ↗')}
               </button>
             </div>
 
             <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={() => onNavigate('knowledge')}
+                onClick={() => onNavigate('creative', 'lectures')}
                 className="w-full flex items-center justify-between gap-3 text-left group cursor-pointer"
               >
                 <div className="min-w-0">
                   <p className="text-[13.5px] font-medium truncate group-hover:underline" style={{ color: 'var(--os-ivory)' }}>
-                    AI Workflow · 3 days
+                    {t('AI Workflow · 3 days', 'AI Workflow · 3 ngày')}
                   </p>
                   <p className="text-[12px] truncate" style={{ color: 'var(--os-ivory-faint)' }}>
-                    {nextWorkflow ? nextWorkflow.title : 'Create next lesson'}
+                    {nextWorkflow ? nextWorkflow.title : t('Create next lesson', 'Tạo bài giảng tiếp theo')}
                   </p>
                 </div>
                 <span className="text-[12.5px] tabular-nums shrink-0" style={{ color: 'var(--os-dusty-blue)' }}>
@@ -665,10 +685,10 @@ export function TodayView({
               >
                 <div className="min-w-0">
                   <p className="text-[13.5px] font-medium truncate group-hover:underline" style={{ color: 'var(--os-ivory)' }}>
-                    Psychology · Weekly
+                    {t('Psychology · Weekly', 'Tâm lý học · Hàng tuần')}
                   </p>
                   <p className="text-[12px] truncate" style={{ color: 'var(--os-ivory-faint)' }}>
-                    {nextPsych ? nextPsych.title : 'Draft weekly essay'}
+                    {nextPsych ? nextPsych.title : t('Draft weekly essay', 'Soạn bài phân tích tuần')}
                   </p>
                 </div>
                 <span className="text-[12.5px] tabular-nums shrink-0" style={{ color: 'var(--os-brass)' }}>
@@ -682,14 +702,14 @@ export function TodayView({
 
           {/* Life Balance — Quiet 4-word Touch Bar (No screaming rings!) */}
           <div className="space-y-3">
-            <p className="editorial-eyebrow">Life Balance</p>
+            <p className="editorial-eyebrow">{t('Life Balance', 'Cân Bằng Ngày')}</p>
             <div className="grid grid-cols-4 gap-2">
               {(
                 [
-                  ['learn', 'Learn', balance.learn],
-                  ['read', 'Read', balance.read],
-                  ['move', 'Move', balance.move],
-                  ['create', 'Create', balance.create],
+                  ['learn', t('Learn', 'Học'), balance.learn],
+                  ['read', t('Read', 'Đọc'), balance.read],
+                  ['move', t('Move', 'Vận động'), balance.move],
+                  ['create', t('Create', 'Sáng tạo'), balance.create],
                 ] as const
               ).map(([key, label, active]) => (
                 <button
@@ -728,14 +748,14 @@ export function TodayView({
           ================================================================ */}
       <section className="space-y-5">
         <div className="flex items-center justify-between">
-          <p className="editorial-eyebrow">Your World</p>
+          <p className="editorial-eyebrow">{t('Your World', 'Thế Giới Của Bạn')}</p>
           <button
             type="button"
             onClick={() => onNavigate('life', 'habits')}
             className="text-[12px] transition-opacity hover:opacity-80 cursor-pointer"
             style={{ color: 'var(--os-ivory-muted)' }}
           >
-            Life, outside the screen ↗
+            {t('Life, outside the screen ↗', 'Cuộc sống ngoài màn hình ↗')}
           </button>
         </div>
 
@@ -810,7 +830,7 @@ export function TodayView({
               className="metadata text-[10.5px] uppercase tracking-[0.22em]"
               style={{ color: 'var(--os-brass)' }}
             >
-              THE ART OF BECOMING
+              {t('THE ART OF BECOMING', 'NGHỆ THUẬT TRỞ THÀNH')}
             </p>
           </div>
 
@@ -821,16 +841,25 @@ export function TodayView({
               className="font-editorial text-[19px] sm:text-[22px] leading-snug"
               style={{ color: 'var(--os-ivory-bright)' }}
             >
-              Curious by nature. Mischievous by design. Pure in pursuit.
+              {t(
+                'Curious by nature. Mischievous by design. Pure in pursuit.',
+                'Tò mò bẩm sinh. Tinh nghịch có chủ đích. Thuần khiết trong hành trình.'
+              )}
             </p>
-            <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              A mind without boundaries, a soul without a destination.
+            <p className="text-[13.5px] italic" style={{ color: 'var(--os-ivory-muted)' }}>
+              {t(
+                'A restless mind, an untamed imagination, and a soul forever in the making.',
+                'Một tâm trí không ngừng trăn trở, một trí tưởng tượng không bị thuần hóa, và một tâm hồn mãi đang thành hình.'
+              )}
             </p>
             <p
               className="metadata text-[10px] uppercase tracking-[0.22em] pt-1"
               style={{ color: 'var(--os-brass)' }}
             >
-              THINK · DISCOVER · CREATE · BECOME
+              {t(
+                'THINK · WANDER · QUESTION · CREATE · BECOME',
+                'SUY TƯ · LANG THANG · CHẤT VẤN · KIẾN TẠO · TRỞ THÀNH'
+              )}
             </p>
           </div>
         </button>
