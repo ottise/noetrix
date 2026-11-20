@@ -37,7 +37,7 @@ export function Bookshelf() {
 
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  const [category, setCategory] = useState('Tâm lý / Tư duy');
+  const [category, setCategory] = useState(t('Psychology / Mindset', 'Tâm lý / Tư duy'));
   const [totalPages, setTotalPages] = useState(250);
   const [status, setStatus] = useState<Book['status']>('unread');
   const [whyBought, setWhyBought] = useState('');

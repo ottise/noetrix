@@ -737,14 +737,14 @@ export function OperatingSystemsLab({
                   className="px-4 py-2 rounded-[8px] text-[12.5px] font-semibold cursor-pointer"
                   style={{ backgroundColor: '#B99B79', color: '#101114' }}
                 >
-                  Mở Topic Workspace →
+                  {t('Open Topic Workspace →', 'Mở Topic Workspace →')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setAddTopicOpen(true)}
                   className="px-3.5 py-2 rounded-[8px] text-[12px] font-medium cursor-pointer border border-[#2a3140] text-[#A7B6D2] hover:bg-[#1a1f29]"
                 >
-                  + Thêm Topic
+                  {t('+ Add Topic', '+ Thêm Topic')}
                 </button>
               </div>
             </div>

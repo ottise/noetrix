@@ -403,8 +403,6 @@ export function ChessLab() {
           [
             ['path', t('Learning Path', 'Lộ trình học')],
             ['practice', t('Practice Board', 'Bàn cờ thực hành')],
-            ['journal', t('Game Journal', 'Nhật ký ván đấu')],
-            ['library', t('Chess Library', 'Thư viện Cờ')],
           ] as const
         ).map(([sec, lbl]) => (
           <button
@@ -455,15 +453,6 @@ export function ChessLab() {
               </p>
               <p className="metadata text-[9.5px] uppercase mt-1" style={{ color: 'var(--os-ivory-faint)' }}>
                 {t('Lessons Mastered', 'Bài đã thành thạo')}
-              </p>
-            </div>
-            <div className="h-7 w-[1px] bg-[var(--os-border)]" />
-            <div>
-              <p className="font-editorial text-[16px] leading-none" style={{ color: games.length > 0 ? 'var(--os-sage)' : 'var(--os-ivory-muted)' }}>
-                {games.length > 0 ? t(`${games.length} Games Logged`, `${games.length} Ván đã ghi`) : t('No games recorded', 'Chưa ghi ván nào')}
-              </p>
-              <p className="metadata text-[9.5px] uppercase mt-1.5" style={{ color: 'var(--os-ivory-faint)' }}>
-                {t('Game Journal', 'Nhật ký ván đấu')}
               </p>
             </div>
           </div>
@@ -543,7 +532,7 @@ export function ChessLab() {
         {/* FOUR CLEAN DESTINATIONS (Overview -> Destinations, Not All Content Dumped!) */}
         <section className="space-y-3">
           <p className="editorial-eyebrow">{t('EXPLORE CHESS ROOM', 'KHÁM PHÁ PHÒNG CỜ')}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-y divide-y sm:divide-y-0 sm:divide-x divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 border-y divide-y sm:divide-y-0 sm:divide-x divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
             {(
               [
                 {
@@ -562,22 +551,6 @@ export function ChessLab() {
                   cta: t('Interactive 8×8', 'Bàn cờ 8×8'),
                   accent: 'var(--os-dusty-blue)',
                 },
-                {
-                  id: 'journal',
-                  num: '03',
-                  title: t('Game Journal', 'Nhật Ký Ván Đấu'),
-                  sub: t('Save PGN, Critical Moments & self-analyze before turning on Engine.', 'Lưu PGN, Critical Moments & tự phân tích 4 câu hỏi trước Engine.'),
-                  cta: games.length > 0 ? `${games.length} ${t('games', 'ván')}` : t('Ready to log', 'Sẵn sàng ghi'),
-                  accent: 'var(--os-sage)',
-                },
-                {
-                  id: 'library',
-                  num: '04',
-                  title: t('Chess Library', 'Thư Viện Cờ'),
-                  sub: t('Classic books, courses & Lichess Studies curated by level.', 'Sách kinh điển, khóa học, Lichess Studies phân theo trình độ.'),
-                  cta: `${CHESS_LIBRARY_ITEMS.length} ${t('references', 'tài liệu')}`,
-                  accent: 'var(--os-ivory-muted)',
-                },
               ] as const
             ).map((dest, idx) => (
               <button
@@ -587,7 +560,7 @@ export function ChessLab() {
                   triggerHaptic('selection');
                   setUi((p) => ({ ...p, section: dest.id }));
                 }}
-                className={`py-5 ${idx === 0 ? 'sm:pr-5' : idx === 3 ? 'sm:pl-5' : 'sm:px-5'} text-left flex flex-col justify-between gap-4 hover:bg-[rgba(217,213,203,0.025)] transition-colors cursor-pointer group`}
+                className={`py-5 ${idx === 0 ? 'sm:pr-5' : 'sm:pl-5'} text-left flex flex-col justify-between gap-4 hover:bg-[rgba(217,213,203,0.025)] transition-colors cursor-pointer group`}
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

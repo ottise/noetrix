@@ -693,24 +693,6 @@ export function HobbiesJournal() {
             >
               {t('Quick Snap Camera', 'Chụp Ảnh Nhanh')}
             </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                launchQuickCapture(captureType, {
-                  autoFilePicker: true,
-                  targetDate: selectedDate,
-                })
-              }
-              className="px-4 py-2.5 rounded-xl text-[13.5px] font-medium cursor-pointer transition-colors hover:border-[#eac16f]/50"
-              style={{
-                backgroundColor: '#181c26',
-                color: '#EDEAE2',
-                border: '1px solid #282f3d',
-              }}
-            >
-              {t('Upload Photo / Ctrl+V', 'Chọn Ảnh / Dán Ctrl+V')}
-            </button>
           </div>
         </div>
 
@@ -797,7 +779,6 @@ export function HobbiesJournal() {
                   {card.count}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -806,7 +787,7 @@ export function HobbiesJournal() {
                       targetDate: selectedDate,
                     })
                   }
-                  className="flex-1 py-1.5 px-2.5 rounded-lg text-[12px] font-semibold cursor-pointer text-center"
+                  className="w-full py-1.5 px-2.5 rounded-lg text-[12px] font-semibold cursor-pointer text-center"
                   style={{
                     backgroundColor: 'rgba(255,255,255,0.06)',
                     color: '#EDEAE2',
@@ -815,24 +796,6 @@ export function HobbiesJournal() {
                 >
                   {card.btn}
                 </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    launchQuickCapture(card.type, {
-                      autoFilePicker: true,
-                      targetDate: selectedDate,
-                    })
-                  }
-                  className="py-1.5 px-2.5 rounded-lg text-[11.5px] cursor-pointer"
-                  style={{
-                    backgroundColor: '#161a23',
-                    color: '#9ca3af',
-                    border: '1px solid #262e3d',
-                  }}
-                >
-                  {t('File', 'Tải ảnh')}
-                </button>
-              </div>
             </div>
           ))}
         </div>
@@ -950,13 +913,6 @@ export function HobbiesJournal() {
                       >
                         {t('Start Live Camera', 'Mở Camera Ngay')}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        className="px-4 py-2 rounded-xl text-[13px] font-medium cursor-pointer bg-[#1a1f2b] text-white border border-[#2c3546]"
-                      >
-                        {t('Choose from Device', 'Chọn ảnh từ máy')}
-                      </button>
                     </div>
                     {cameraError && (
                       <p className="text-[12px] text-[#eac16f] max-w-sm">{cameraError}</p>
@@ -965,8 +921,8 @@ export function HobbiesJournal() {
                 )}
               </div>
 
-              {/* Right 6 Cols: Category, Date Picker, Caption & 1-Click Save */}
-              <div className="lg:col-span-6 space-y-3.5">
+              {/* Right 6 Cols: Category, Date & Save */}
+              <div className="lg:col-span-6 space-y-4">
                 <SegmentedControl
                   value={captureType}
                   onChange={switchCaptureType}
@@ -978,113 +934,15 @@ export function HobbiesJournal() {
                   ]}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div className="sm:col-span-2">
-                    <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                      {t('Title / Moment', 'Tiêu đề khoảnh khắc')}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder={t('Title...', 'Nhập tiêu đề...')}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-[14px] bg-[#141821] border border-[#252c3b] text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                      {t('Date in Vault', 'Ngày lưu lịch')}
-                    </label>
-                    <input
-                      type="date"
-                      value={captureDate}
-                      onChange={(e) => setCaptureDate(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-[13px] bg-[#141821] border border-[#252c3b] text-white tabular-nums"
-                    />
-                  </div>
-                </div>
-
-                {captureType === 'gym' && (
-                  <div className="space-y-1">
-                    <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                      {t('Workout Split', 'Nhóm cơ tập')}
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {GYM_SPLITS.map((sp) => (
-                        <button
-                          key={sp}
-                          type="button"
-                          onClick={() => setGymSplit(sp)}
-                          className="px-2.5 py-1 rounded-lg text-[11.5px] cursor-pointer"
-                          style={{
-                            backgroundColor: gymSplit === sp ? '#eac16f' : '#141821',
-                            color: gymSplit === sp ? '#0c0e12' : '#9ca3af',
-                            fontWeight: gymSplit === sp ? 600 : 400,
-                            border: '1px solid #252c3b',
-                          }}
-                        >
-                          {sp}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {captureType === 'places' && (
-                  <div>
-                    <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                      {t('Location / Place Name', 'Địa điểm / Tên nơi ghé thăm')}
-                    </label>
-                    <input
-                      type="text"
-                      value={locationName}
-                      onChange={(e) => setLocationName(e.target.value)}
-                      placeholder={t('e.g. Café, street, rooftop, trip...', 'Ví dụ: Quán cà phê, bảo tàng, góc phố...')}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white"
-                    />
-                  </div>
-                )}
-
-                {captureType === 'swimming' && (
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                        {t('Distance (m)', 'Cự ly bơi (mét)')}
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={50}
-                        value={distanceMeters}
-                        onChange={(e) => setDistanceMeters(Number(e.target.value))}
-                        className="w-full mt-1 px-3 py-2 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white tabular-nums"
-                      />
-                    </div>
-                    <div>
-                      <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                        {t('Stroke', 'Kiểu bơi')}
-                      </label>
-                      <input
-                        type="text"
-                        value={stroke}
-                        onChange={(e) => setStroke(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div>
                   <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                    {t('Caption / Memory Note', 'Ghi chú / Caption cho bức ảnh')}
+                    {t('Date in Vault', 'Ngày lưu lịch')}
                   </label>
-                  <textarea
-                    rows={2}
-                    value={details}
-                    onChange={(e) => setDetails(e.target.value)}
-                    placeholder={t('Write a short memory or note...', 'Ghi lại cảm nhận hoặc kỷ niệm của bức hình này...')}
-                    className="w-full mt-1 px-3 py-2 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white"
+                  <input
+                    type="date"
+                    value={captureDate}
+                    onChange={(e) => setCaptureDate(e.target.value)}
+                    className="w-full mt-1 px-3 py-2.5 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white tabular-nums"
                   />
                 </div>
 
@@ -1095,10 +953,10 @@ export function HobbiesJournal() {
                   style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
                 >
                   {saving
-                    ? t('Saving to Photo Vault...', 'Đang lưu vào Kho Ảnh...')
+                    ? t('Saving...', 'Đang lưu...')
                     : t(
-                        `Save to Photo Vault (${formatShortDate(captureDate)}) · +25 XP`,
-                        `Lưu vào Kho Ảnh Ngày ${formatShortDate(captureDate)} · +25 XP`
+                        `Save Photo (${formatShortDate(captureDate)})`,
+                        `Lưu Ảnh (${formatShortDate(captureDate)})`
                       )}
                 </button>
               </div>
@@ -1356,18 +1214,6 @@ export function HobbiesJournal() {
                   style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
                 >
                   {t('Snap Camera', 'Mở Camera chụp')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    launchQuickCapture('gym', {
-                      autoFilePicker: true,
-                      targetDate: selectedDate,
-                    })
-                  }
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer bg-[#181c26] text-white border border-[#282f3d]"
-                >
-                  {t('Upload Photo for This Day', 'Tải ảnh lên cho ngày này')}
                 </button>
               </div>
             </div>

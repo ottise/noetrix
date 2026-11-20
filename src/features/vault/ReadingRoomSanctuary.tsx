@@ -440,8 +440,42 @@ export function ReadingRoomSanctuary({
             )}
           </div>
 
-          {/* Right Controls: Expand Space */}
+          {/* Right Controls: Delete Book · Expand Space */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {activeBook && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      t(
+                        `Remove "${activeBook.title}" from your library?`,
+                        `Xóa cuốn "${activeBook.title}" khỏi thư viện?`
+                      )
+                    )
+                  ) {
+                    return;
+                  }
+                  const remaining = books.filter((b) => b.id !== activeBook.id);
+                  await db.books.delete(activeBook.id);
+                  showToast(t('Deleted book', 'Đã xóa sách'), 'info');
+                  if (remaining.length > 0) {
+                    onSelectBookId(remaining[0].id);
+                  } else {
+                    onCloseRoom();
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg metadata text-[11px] font-semibold cursor-pointer transition-colors hover:bg-red-500/15"
+                style={{
+                  backgroundColor: theme.bg,
+                  color: '#f87171',
+                  border: '1px solid rgba(248, 113, 113, 0.35)',
+                }}
+              >
+                {t('Delete', 'Xóa sách')}
+              </button>
+            )}
+
             {/* Fullscreen Spatial Toggle */}
             <button
               type="button"

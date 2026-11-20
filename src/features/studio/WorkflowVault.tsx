@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createId, getLocalDateStr, addDaysStr, diffDaysFromToday, formatShortDate } from '../../db/database';
 import { awardXp } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import type { WorkflowLecture, WorkflowStatus } from '../../types';
 import { CheckDot, EmptyState, useToast } from '../../components/ui/Primitives';
 import { ImageGallery } from '../../components/ImageGallery';
@@ -26,6 +27,7 @@ const STATUS_META: Record<WorkflowStatus, { label: string; color: string }> = {
  */
 export function WorkflowVault() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const lectures =
     useLiveQuery(() => db.workflowLectures.orderBy('updatedAt').reverse().toArray()) || [];
 
@@ -150,7 +152,7 @@ export function WorkflowVault() {
             className="text-[13.5px] font-medium cursor-pointer"
             style={{ color: 'var(--os-ivory-muted)' }}
           >
-            ← Back to Archive
+            ← {t('Back to Archive', 'Quay lại Kho lưu trữ')}
           </button>
 
           <div className="flex items-center gap-3">
@@ -180,7 +182,9 @@ export function WorkflowVault() {
                   : { backgroundColor: 'var(--os-brass)', color: '#101114' }
               }
             >
-              {selected.status === 'published' ? 'Published & Archived' : 'Publish Lesson'}
+              {selected.status === 'published'
+                ? t('Published & Archived', 'Đã xuất bản & Lưu trữ')
+                : t('Publish Lesson', 'Xuất bản bài giảng')}
             </button>
 
             <button
@@ -189,7 +193,7 @@ export function WorkflowVault() {
               className="text-[12.5px] cursor-pointer"
               style={{ color: 'var(--os-ivory-faint)' }}
             >
-              Delete
+              {t('Delete', 'Xóa')}
             </button>
           </div>
         </div>
@@ -331,7 +335,10 @@ export function WorkflowVault() {
                       rows={16}
                       value={selected.docVi}
                       onChange={(e) => updateLecture(selected.id, { docVi: e.target.value })}
-                      placeholder="Soạn tài liệu giải thích kiến trúc workflow, từng bước xử lý và bài học thực tế..."
+                      placeholder={t(
+                        'Draft Vietnamese documentation for workflow architecture, steps, and key takeaways...',
+                        'Soạn tài liệu giải thích kiến trúc workflow, từng bước xử lý và bài học thực tế...'
+                      )}
                       className="w-full p-4 rounded-[12px] text-[15px] leading-[1.78] resize-y"
                       style={{
                         backgroundColor: 'var(--os-obsidian)',
@@ -522,17 +529,21 @@ export function WorkflowVault() {
           <div className="md:col-span-7 p-6 flex flex-col justify-between gap-4">
             <div className="space-y-1.5">
               <p className="editorial-eyebrow" style={{ color: 'var(--os-brass)' }}>
-                Technical Archive · Every 3 Days
+                {t('Technical Archive · Every 3 Days', 'Lưu trữ Kỹ thuật · Chu kỳ 3 ngày')}
               </p>
-              <h2 className="editorial-h2">AI Workflow Monographs</h2>
+              <h2 className="editorial-h2">{t('AI Workflow Monographs', 'Hồ sơ Bài giảng AI Workflow')}</h2>
               <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-                Mỗi bài giảng là một hồ sơ tri thức hoàn chỉnh gồm tài liệu song ngữ Việt – Anh, sơ đồ kiến trúc, bản ghi âm giảng bài và ghi chú thực nghiệm.
+                {t(
+                  'Each lecture is a complete knowledge dossier with bilingual VI–EN docs, architecture diagrams, voice recordings, and field notes.',
+                  'Mỗi bài giảng là một hồ sơ tri thức hoàn chỉnh gồm tài liệu song ngữ Việt – Anh, sơ đồ kiến trúc, bản ghi âm giảng bài và ghi chú thực nghiệm.'
+                )}
               </p>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[12.5px] tabular-nums" style={{ color: 'var(--os-ivory-faint)' }}>
-                {publishedCount} archived · {lectures.length} total volumes
+                {publishedCount} {t('archived', 'đã lưu trữ')} · {lectures.length}{' '}
+                {t('total volumes', 'tổng số bài')}
               </span>
               <button
                 type="button"
@@ -540,7 +551,7 @@ export function WorkflowVault() {
                 className="px-4 py-2 rounded-full text-[13px] font-medium cursor-pointer"
                 style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
               >
-                + New Volume
+                {t('+ New Volume', '+ Tạo bài mới')}
               </button>
             </div>
           </div>

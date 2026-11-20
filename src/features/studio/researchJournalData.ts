@@ -508,260 +508,16 @@ export function createBlankResearchProject(
 }
 
 export function buildInitialResearchJournalState(todayStr: string): PersonalResearchJournalState {
-  const now = Date.now();
-
-  const src1: KnowledgeSource = {
-    id: 'src_001',
-    category: 'Scientific Papers',
-    paperTitle: 'Predictive Reward Signal of Dopamine Neurons',
-    author: 'Schultz, W.',
-    publicationYear: '1998',
-    journalOrPublisher: 'Journal of Neurophysiology, 80(1), 1–27',
-    doiOrUrl: 'https://doi.org/10.1152/jn.1998.80.1.1',
-    abstractText:
-      'Dopamine neurons fire strongest not when receiving an expected reward, but during the anticipation and prediction of reward cues.',
-    keyFindings:
-      'Dopamine phản ứng mạnh ở pha kỳ vọng (anticipation), không phải pha hoàn tất. Lập kế hoạch quá kỹ hoặc mua sách kích hoạt phần thưởng giả trước khi bắt tay vào học.',
-    limitations: 'Nghiên cứu sinh lý thần kinh ở mức tín hiệu dự đoán; cần đối chiếu thêm với tâm lý học trì hoãn ở người.',
-    personalNotes: 'Giải thích trực tiếp cảm giác "lập kế hoạch xong là thấy đủ" mà không muốn bắt đầu làm thật.',
-    relatedResearchIds: ['res_001'],
-    createdAt: now - 3600 * 1000 * 10,
-    updatedAt: now - 3600 * 1000 * 10,
-  };
-
-  const src2: KnowledgeSource = {
-    id: 'src_002',
-    category: 'Books',
-    paperTitle: 'The Black Swan: The Impact of the Highly Improbable (Antilibrary)',
-    author: 'Taleb, N. N.',
-    publicationYear: '2007',
-    journalOrPublisher: 'Random House',
-    doiOrUrl: '',
-    abstractText:
-      'Unread books serve best as research tools organized around open questions rather than linear trophies.',
-    keyFindings:
-      'Sách chưa đọc nên được dùng làm thư viện tra cứu theo câu hỏi nghiên cứu thay vì tạo cảm giác tội lỗi hay áp lực phải đọc tuyến tính.',
-    limitations: 'Góc nhìn triết học/nhận thức luận, không có số liệu thử nghiệm.',
-    personalNotes: 'Giúp chuyển tư duy đọc thụ động sang đọc theo câu hỏi (question-driven reading).',
-    relatedResearchIds: ['res_001'],
-    createdAt: now - 3600 * 1000 * 8,
-    updatedAt: now - 3600 * 1000 * 8,
-  };
-
-  const raw1: RawJournalEntry = {
-    id: 'raw_001',
-    title: 'Tại sao lập kế hoạch chi tiết xong lại không muốn bắt đầu?',
-    date: todayStr,
-    rawContent:
-      'Mỗi lần vẽ lộ trình học thật đẹp hay tải tài liệu mới, não cảm thấy yên tâm như thể đã tiến bộ rồi. Nhưng ngay khi đối diện trang đầu tiên để đọc hoặc viết, một sức ỳ lớn xuất hiện.',
-    tags: ['Procrastination', 'Learning', 'Focus'],
-    targetSection: 'problem',
-    relatedResearchIds: ['res_001'],
-    createdAt: now - 3600 * 1000 * 12,
-    updatedAt: now - 3600 * 1000 * 12,
-  };
-
-  const raw2: RawJournalEntry = {
-    id: 'raw_002',
-    title: 'Suy nghĩ vụn khi học một mình không có phản hồi ngay',
-    date: todayStr,
-    rawContent:
-      'Những việc rèn nền tảng âm thầm dễ làm mình nản vì thiếu phản hồi tức thì, trong khi việc lên kế hoạch lại cho cảm giác kiểm soát ngay lập tức.',
-    tags: ['Motivation', 'Psychology'],
-    targetSection: 'evidence',
-    relatedResearchIds: ['res_001'],
-    createdAt: now - 3600 * 1000 * 6,
-    updatedAt: now - 3600 * 1000 * 6,
-  };
-
-  const proj1: ResearchProject = {
-    id: 'res_001',
-    code: 'RESEARCH / 001',
-    domain: 'PERSONAL PSYCHOLOGY',
-    date: todayStr,
-    researchStatus: 'in_progress',
-
-    title: 'Why Do I Struggle to Learn? — Overplanning & Initiation Friction',
-    abstract:
-      'Nghiên cứu nguyên nhân tâm lý – nhận thức đằng sau thói quen lập kế hoạch quá chi tiết nhưng lại trì hoãn khi bước vào phiên học thực sự.',
-    tags: ['Learning', 'Procrastination', 'Focus', 'Psychology'],
-
-    background:
-      'Nhiều người (và chính bản thân) đầu tư rất nhiều thời gian xây hệ thống, mua sách, lập lộ trình nhưng liên tục mắc kẹt ở bước bắt tay vào 15 phút đầu tiên.',
-    observation:
-      'Khi vẽ xong một kế hoạch chi tiết, mình thấy phấn khích và nhẹ nhõm — nhưng cảm giác đó lại triệt tiêu động lực làm việc thực tế ngay sau đó.',
-    problemStatement:
-      'Làm sao tách biệt cơ chế "thỏa mãn giả nhờ lập kế hoạch" ra khỏi hành động học thực sự để giảm ma sát bắt đầu?',
-    problemContext: 'Áp dụng vào quá trình tự học kỹ năng sâu và đọc tài liệu dài hạn.',
-
-    question:
-      'Tại sao việc lập kế hoạch quá kỹ hoặc tích trữ tài liệu lại tạo cảm giác tiến bộ giả và làm tăng sự trì hoãn khi bắt đầu thực hành?',
-    subQuestions:
-      '1. Dopamine kỳ vọng (anticipation) tác động ra sao ở pha lập kế hoạch?\n2. Khung phiên ngắn 10–20 phút không ép kết thúc có giảm ma sát khởi đầu không?',
-    scope: 'Tập trung vào hành vi tự học cá nhân trong 2–4 tuần, không khái quát hóa thành rối loạn lâm sàng.',
-    researchBoundaries: 'Chỉ xét các nhiệm vụ nhận thức đòi hỏi tập trung sâu (đọc hiểu, viết, giải bài tập).',
-
-    hypothesis:
-      'Việc lập kế hoạch quá mức hoạt động như cơ chế thay thế mục tiêu (Symbolic Self-Completion) để né tránh cảm giác chưa giỏi ở bước thực hành đầu tiên.',
-    objectives:
-      '1. Hiểu cơ chế thần kinh/tâm lý của pha kỳ vọng.\n2. Kiểm chứng quy tắc làm việc theo từng mục ngắn 10–20 phút.',
-    expectedOutcomes:
-      'Giảm thời gian sửa sang kế hoạch và tăng số lần ngồi vào bàn học thực tế mà không cần chuẩn bị hoàn hảo.',
-
-    existingTheories: 'Reward Prediction Error (Schultz, 1998); Symbolic Self-Completion; Antilibrary (Taleb, 2007).',
-    literatureReview:
-      '- Schultz (1998): Neuron dopamine phản ứng mạnh với tín hiệu dự đoán phần thưởng hơn là phần thưởng thực tế.\n- Taleb (2007): Sách chưa đọc nên phục vụ câu hỏi nghiên cứu hiện tại thay vì trở thành áp lực.',
-    relatedConcepts: 'Cognitive friction, Perfectionism paralysis, Micro-commitments.',
-    researchGaps: 'Ít tài liệu phân tích tác động của giao diện công cụ học tập lên việc khuyến khích "quản lý việc học" thay vì "thực sự học".',
-
-    researchDesign: 'Tự quan sát hành vi kết hợp nhật ký định tính theo ngày và đối chiếu lý thuyết thần kinh – tâm lý.',
-    dataCollection: 'Ghi chép tự do hàng ngày (Research Notes) + nhật ký thử nghiệm phiên 15 phút.',
-    participants: 'Cá nhân (N = 1, self-study observational protocol).',
-    variables: 'Biến can thiệp: Giới hạn thời gian lập kế hoạch (< 3 phút) và dùng phiên ngắn 15 phút.',
-    procedure: 'Ghi nhận cảm xúc trước phiên học → thực hành 15 phút → ghi nhận lực cản sau phiên.',
-    optionalMethodologyFields: {
-      participants: false,
-      variables: true,
-      procedure: false,
-    },
-
-    findings:
-      'Khi bỏ qua bước "tối ưu toàn bộ lộ trình" và chỉ mở đúng 1 đầu mục trong 15 phút, cảm giác sợ hãi trước trang trắng giảm rõ rệt.',
-    evidence:
-      'Trong các ngày áp dụng phiên 15 phút với quyền dừng lại bất kỳ lúc nào, số phiên bắt đầu thành công tăng lên so với những ngày viết danh sách 20 đầu việc.',
-    evidenceData: '5/7 ngày hoàn thành ít nhất 1 phiên 15 phút mà không sa đà sửa kế hoạch.',
-    patterns: 'Cứ khi nào cảm thấy nhiệm vụ "mơ hồ và quá lớn", não lập tức chuyển sang trạng thái tìm công cụ/lập danh sách mới.',
-    contradictoryEvidence:
-      'Với những môn cần nền tảng tuần tự (như Thuật toán, Cờ vua), thiếu hẳn lộ trình khung cũng gây mất phương hướng.',
-
-    experimentNotApplicable: false,
-    experimentDesign:
-      'Thử nghiệm 7 ngày: giảm 45 phút mạng xã hội trước giờ học, giới hạn chuẩn bị tối đa 3 phút và bắt đầu ngay với đúng 1 mục nghiên cứu.',
-    experimentDailyLogs: [
-      {
-        id: 'elog_1',
-        date: todayStr,
-        observation: 'Ngày 1–2: Vẫn có thói quen muốn mở tab mới sắp xếp lại thư mục trước khi đọc.',
-        note: 'Nhận diện lực cản sớm giúp dừng lại kịp thời.',
-      },
-      {
-        id: 'elog_2',
-        date: todayStr,
-        observation: 'Ngày 3–5: Khi cho phép bản thân chỉ làm 1 mục trong 15 phút rồi nghỉ, việc bắt đầu trở nên nhẹ hơn hẳn.',
-        note: 'Áp lực hoàn hảo giảm đáng kể.',
-      },
-    ],
-    experimentObservations: 'Phản xạ trì hoãn xuất hiện mạnh nhất trong 3 phút đầu tiên trước khi chạm vào nội dung.',
-    experimentResults: 'Hoàn thành 5 phiên tập trung 15 phút trong tuần mà không bị ngợp bởi danh sách lớn.',
-
-    interpretation:
-      'Trì hoãn không phải do thiếu kỷ luật bẩm sinh, mà là phản ứng tự nhiên khi nhiệm vụ chưa được tách thành một đơn vị hành động đủ nhỏ và an toàn.',
-    comparison:
-      'Phù hợp với mô tả của Schultz (1998) về dopamine kỳ vọng: lập kế hoạch cho phần thưởng nhanh mà không chịu rủi ro thất bại.',
-    counterarguments:
-      'Không phải mọi việc lập kế hoạch đều xấu: bản đồ khung giúp giữ hướng đi dài hạn miễn là nó không thay thế cho giờ làm việc thực.',
-    alternativeExplanations:
-      'Có thể sự mệt mỏi thể chất hoặc thiếu ngủ cuối ngày cũng làm tăng tỷ lệ né tránh nhiệm vụ khó.',
-
-    conclusion:
-      'Tách biệt rõ không gian lưu cấu trúc và phiên làm việc đơn lẻ 10–20 phút. Mỗi lần mở workspace chỉ xử lý đúng 1 mục đang chọn.',
-    hypothesisEvaluation: 'Được ủng hộ phần lớn (Partially Supported): cấu trúc từng mục độc lập giúp giảm rõ rệt sức ỳ khởi đầu.',
-    limitations: 'Cần theo dõi thêm qua 30 ngày trong giai đoạn lịch làm việc bận rộn hơn.',
-    futureQuestions: 'Cấu trúc 12 mục tuần tự nhưng không khóa thứ tự có giúp duy trì nghiên cứu dài hạn qua 2 tháng không?',
-
-    initialBelief:
-      'Mình trì hoãn vì thiếu kỷ luật và cần một dashboard thật hoành tráng với thật nhiều tính năng theo dõi.',
-    currentBelief:
-      'Quá nhiều bảng theo dõi chỉ làm mình tốn thời gian quản lý việc nghiên cứu hơn là thực sự nghiên cứu. Một workspace tối giản từng mục hiệu quả hơn.',
-    lessonsLearned: 'Nghiên cứu không cần xong trong một ngày; mỗi phiên 10–20 phút giải quyết đúng một mục là đủ.',
-    personalChanges: 'Bớt chạy theo cảm giác bận rộn giả khi tinh chỉnh hệ thống; ưu tiên viết thẳng câu hỏi và bằng chứng.',
-
-    citationFormat: 'APA 7th',
-    referenceNotes: '',
-
-    sectionStatuses: {
-      overview: 'completed',
-      problem: 'completed',
-      questions: 'completed',
-      hypothesis: 'completed',
-      literature: 'in_progress',
-      methodology: 'in_progress',
-      evidence: 'in_progress',
-      experiment: 'in_progress',
-      discussion: 'in_progress',
-      conclusion: 'not_started',
-      reflection: 'in_progress',
-      references: 'in_progress',
-    },
-    sectionSavedAt: {
-      overview: now - 3600 * 1000 * 10,
-      problem: now - 3600 * 1000 * 9,
-      questions: now - 3600 * 1000 * 8,
-    },
-    sourceIds: ['src_001', 'src_002'],
-    igRawVi:
-      'Lập kế hoạch quá kỹ nhiều khi không giúp ta làm việc tốt hơn — nó chỉ cho não một liều dopamine kỳ vọng trước khi đối diện với trang giấy trắng.',
-    igEnglishRewrite:
-      'Overplanning rarely improves execution — it often gives the brain an early dose of anticipation dopamine before facing the blank page.',
-    igDueDate: todayStr,
-    igPublished: false,
-    createdAt: now - 3600 * 1000 * 11,
-    updatedAt: now - 3600 * 1000,
-  };
-
-  const links: SourceClaimLink[] = [
-    {
-      id: 'sl_001',
-      researchId: 'res_001',
-      sourceId: 'src_001',
-      section: 'evidence',
-      claimLabel: 'Cơ chế Dopamine kỳ vọng tạo thỏa mãn giả khi lập kế hoạch',
-      stance: 'supports',
-      excerpt: 'Dopamine neurons fire strongest during anticipation and prediction of reward cues rather than completion.',
-      createdAt: now - 3600 * 1000 * 4,
-    },
-    {
-      id: 'sl_002',
-      researchId: 'res_001',
-      sourceId: 'src_002',
-      section: 'discussion',
-      claimLabel: 'Dùng tài liệu theo câu hỏi thay vì áp lực đọc hết',
-      stance: 'context',
-      excerpt: 'Antilibrary paradigm: unread books act as an active reference map anchored by real research questions.',
-      createdAt: now - 3600 * 1000 * 3,
-    },
-  ];
-
-  const timeline: ResearchTimelineEvent[] = [
-    {
-      id: 'tl_001',
-      researchId: 'res_001',
-      dateStr: todayStr,
-      timestamp: now - 3600 * 1000 * 8,
-      category: 'question',
-      summary: 'Đặt câu hỏi trung tâm về nghịch lý lập kế hoạch kỹ nhưng lại trì hoãn bắt tay vào làm.',
-      snapshot: proj1.question,
-    },
-    {
-      id: 'tl_002',
-      researchId: 'res_001',
-      dateStr: todayStr,
-      timestamp: now - 3600 * 1000 * 5,
-      category: 'hypothesis',
-      summary: 'Hình thành giả thuyết Symbolic Self-Completion & nỗi sợ ở bước thực hành đầu tiên.',
-      snapshot: proj1.hypothesis,
-    },
-  ];
-
+  const blankProj = createBlankResearchProject(1, todayStr, 'Nghiên cứu mới', 'PERSONAL PSYCHOLOGY');
   return {
-    activeView: { kind: 'section', key: 'problem' },
-    activeCoreSection: 'problem',
-    lastActiveResearchId: 'res_001',
-    projects: [proj1],
-    rawEntries: [raw1, raw2],
-    sources: [src1, src2],
-    sourceLinks: links,
-    timelineEvents: timeline,
+    activeView: { kind: 'section', key: 'overview' },
+    activeCoreSection: 'overview',
+    lastActiveResearchId: blankProj.id,
+    projects: [blankProj],
+    rawEntries: [],
+    sources: [],
+    sourceLinks: [],
+    timelineEvents: [],
   };
 }
 
@@ -777,11 +533,25 @@ export function normalizeResearchJournalState(
   if (!rawInput || typeof rawInput !== 'object') return fallback;
 
   const parsed = rawInput as Record<string, unknown>;
-  const rawSources = Array.isArray(parsed.sources) ? (parsed.sources as Record<string, unknown>[]) : [];
-  const rawEntriesIn = Array.isArray(parsed.rawEntries) ? (parsed.rawEntries as Record<string, unknown>[]) : [];
+  const rawSources = Array.isArray(parsed.sources)
+    ? (parsed.sources as Record<string, unknown>[]).filter(
+        (s) => s.id !== 'src_001' && s.id !== 'src_002'
+      )
+    : [];
+  const rawEntriesIn = Array.isArray(parsed.rawEntries)
+    ? (parsed.rawEntries as Record<string, unknown>[]).filter(
+        (r) => r.id !== 'raw_001' && r.id !== 'raw_002'
+      )
+    : [];
   const rawExperiments = Array.isArray(parsed.experiments) ? (parsed.experiments as Record<string, unknown>[]) : [];
   const rawInsights = Array.isArray(parsed.insights) ? (parsed.insights as Record<string, unknown>[]) : [];
-  const rawProjects = Array.isArray(parsed.projects) ? (parsed.projects as Record<string, unknown>[]) : [];
+  const rawProjects = Array.isArray(parsed.projects)
+    ? (parsed.projects as Record<string, unknown>[]).filter(
+        (p) =>
+          p.id !== 'res_001' &&
+          !String(p.title || '').includes('Giải mã nghịch lý Lập kế hoạch quá mức')
+      )
+    : [];
 
   if (rawProjects.length === 0) return fallback;
 
@@ -1016,11 +786,15 @@ export function normalizeResearchJournalState(
   });
 
   const sourceLinks: SourceClaimLink[] = Array.isArray(parsed.sourceLinks)
-    ? (parsed.sourceLinks as SourceClaimLink[])
+    ? (parsed.sourceLinks as SourceClaimLink[]).filter(
+        (l) => l.id !== 'sl_001' && l.id !== 'sl_002'
+      )
     : fallback.sourceLinks;
 
   const timelineEvents: ResearchTimelineEvent[] = Array.isArray(parsed.timelineEvents)
-    ? (parsed.timelineEvents as ResearchTimelineEvent[])
+    ? (parsed.timelineEvents as ResearchTimelineEvent[]).filter(
+        (tl) => tl.id !== 'tl_001' && tl.id !== 'tl_002'
+      )
     : fallback.timelineEvents;
 
   const activeCoreSection: ResearchCoreSectionKey = RESEARCH_SECTIONS_META.some(
