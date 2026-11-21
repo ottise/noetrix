@@ -6,6 +6,7 @@ import { triggerHaptic } from '../../lib/haptics';
 import { saveMediaLocalAndMaybeUpload } from '../../lib/media';
 import { persistAllDataToSourceCode, scheduleSourceCodeSave } from '../../lib/sourceStore';
 import { useToast } from '../../components/ui/Primitives';
+import type { MediaAttachmentRef } from '../../types';
 
 export const EXCALIDRAW_STORAGE_KEY = 'noetrix_excalidraw_boards_v1';
 
@@ -481,7 +482,11 @@ function isPointInsideElement(px: number, py: number, el: CanvasElement): boolea
   return px >= b.minX - 6 && px <= b.maxX + 6 && py >= b.minY - 6 && py <= b.maxY + 6;
 }
 
-export function ExcalidrawCanvas() {
+export function ExcalidrawCanvas({
+  onSaveImageToArticle,
+}: {
+  onSaveImageToArticle?: (img: MediaAttachmentRef) => void;
+} = {}) {
   const { showToast } = useToast();
   const [state, setState] = useState<PersistedWhiteboardState>(() => loadWhiteboardState());
 
@@ -1682,7 +1687,16 @@ export function ExcalidrawCanvas() {
       });
       await awardXp(30);
 
-      if (saved.provider === 'cloudinary') {
+      if (onSaveImageToArticle) {
+        onSaveImageToArticle({
+          mediaId: saved.mediaId,
+          caption: activeBoard.title,
+          fileName,
+          remoteUrl: saved.remoteUrl,
+          createdAt: Date.now(),
+        });
+        showToast('Đã lưu bảng vẽ vào Figures & Architecture Diagrams');
+      } else if (saved.provider === 'cloudinary') {
         showToast('Đã lưu ảnh bảng vẽ trực tiếp lên Cloudinary');
       } else {
         showToast('Đã lưu ảnh bảng vẽ vào kho Studio');
@@ -2010,7 +2024,7 @@ export function ExcalidrawCanvas() {
               <path d="M12 12v9" />
               <path d="m16 16-4-4-4 4" />
             </svg>
-            <span>{uploadingCloud ? 'Đang lưu...' : 'Lưu Cloudinary'}</span>
+            <span>{uploadingCloud ? 'Đang lưu...' : onSaveImageToArticle ? 'Lưu vào bài' : 'Lưu Cloudinary'}</span>
           </button>
 
           <button

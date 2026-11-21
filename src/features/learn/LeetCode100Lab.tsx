@@ -282,12 +282,9 @@ export function LeetCode100Lab() {
     updateProblemRecord(prob.num, { status });
 
     if (status !== 'unsolved' && prevStatus === 'unsolved') {
-      const xp = prob.difficulty === 'Medium' ? 35 : 25;
-      await awardXp(xp);
-      showToast(`#${prob.num} ${prob.title} → ${LEETCODE_MASTERY_META[status].label} · +${xp} XP`);
+      showToast(`#${prob.num} ${prob.title} → ${LEETCODE_MASTERY_META[status].label}`);
     } else if (status === 'mastered' && prevStatus !== 'mastered') {
-      await awardXp(40);
-      showToast(`Mastered Pattern · #${prob.num} ${prob.title} · +40 XP`);
+      showToast(`Mastered Pattern · #${prob.num} ${prob.title}`);
     }
 
     // Sync to db.leetcodeEntries so TodayView / GlobalSearch / Firebase Sync stay up to date
@@ -438,13 +435,13 @@ export function LeetCode100Lab() {
       >
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="metadata text-[11px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                {t('LEETCODE 100 — 90-DAY LEARNING ROADMAP', 'LEETCODE 100 — LỘ TRÌNH HỌC 90 NGÀY')}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--os-brass)' }}>
+                {t('LeetCode 100 · 90-day roadmap', 'LeetCode 100 · Lộ trình 90 ngày')}
               </span>
               <span style={{ color: 'var(--os-ivory-faint)' }}>·</span>
-              <span className="metadata text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-dusty-blue)' }}>
-                {t('JAVA BACKEND FOCUS · 1–2H/DAY · 6 DAYS/WEEK', 'TRỌNG TÂM JAVA BACKEND · 1–2H/NGÀY · 6 NGÀY/TUẦN')}
+              <span className="text-[11px] font-medium" style={{ color: 'var(--os-dusty-blue)' }}>
+                {t('Java Backend focus · 1–2h/day', 'Java Backend · 1–2h/ngày')}
               </span>
             </div>
 
@@ -491,7 +488,7 @@ export function LeetCode100Lab() {
           style={{ borderTop: '1px solid var(--os-border)' }}
         >
           <div>
-            <p className="font-editorial text-[28px] leading-none tabular-nums" style={{ color: 'var(--os-ivory-bright)' }}>
+            <p className="text-[22px] font-semibold leading-none tabular-nums" style={{ color: 'var(--os-ivory-bright)' }}>
               {solvedCount} / 100
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -500,7 +497,7 @@ export function LeetCode100Lab() {
           </div>
 
           <div>
-            <p className="font-editorial text-[28px] leading-none tabular-nums" style={{ color: 'var(--os-sage)' }}>
+            <p className="text-[22px] font-semibold leading-none tabular-nums" style={{ color: 'var(--os-sage)' }}>
               {masteredOrResolvedCount}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -509,7 +506,7 @@ export function LeetCode100Lab() {
           </div>
 
           <div>
-            <p className="font-editorial text-[28px] leading-none tabular-nums" style={{ color: 'var(--os-dusty-blue)' }}>
+            <p className="text-[22px] font-semibold leading-none tabular-nums" style={{ color: 'var(--os-dusty-blue)' }}>
               {independentCount}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -518,7 +515,7 @@ export function LeetCode100Lab() {
           </div>
 
           <div>
-            <p className="font-editorial text-[28px] leading-none tabular-nums" style={{ color: 'var(--os-brass)' }}>
+            <p className="text-[22px] font-semibold leading-none tabular-nums" style={{ color: 'var(--os-brass)' }}>
               {completedLectures} / {totalLectures}
             </p>
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--os-ivory-muted)' }}>

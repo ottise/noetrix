@@ -22,10 +22,10 @@ export const APP_CONFIG = {
    * Bạn có thể điền trực tiếp vào đây hoặc điền trong file .env.local
    */
   cloudinary: {
-    cloudName: (env.VITE_CLOUDINARY_CLOUD_NAME || '').trim(),
+    cloudName: (env.VITE_CLOUDINARY_CLOUD_NAME || 'edlocw1i').trim(),
     uploadPreset: (env.VITE_CLOUDINARY_UPLOAD_PRESET || '').trim(),
-    apiKey: (env.VITE_CLOUDINARY_API_KEY || '').trim(),
-    apiSecret: (env.VITE_CLOUDINARY_API_SECRET || '').trim(),
+    apiKey: (env.VITE_CLOUDINARY_API_KEY || '378726651639184').trim(),
+    apiSecret: (env.VITE_CLOUDINARY_API_SECRET || 'L_0DNRs8b5fYRBYL0xv0191HoGU').trim(),
     folder: (env.VITE_CLOUDINARY_FOLDER || 'noetrix').trim(),
   },
 

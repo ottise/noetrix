@@ -404,7 +404,7 @@ export function ResearchNotesPanel({
           <p className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
             AUXILIARY WORKSPACE · RESEARCH NOTES
           </p>
-          <h2 className="font-editorial text-[26px] mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
+          <h2 className="text-[22px] font-semibold mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
             Research Notes
           </h2>
           <p className="text-[13.5px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -671,7 +671,7 @@ export function SourceManagerPanel({
           <p className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
             AUXILIARY WORKSPACE · SOURCE MANAGER
           </p>
-          <h2 className="font-editorial text-[26px] mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
+          <h2 className="text-[22px] font-semibold mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
             Source Manager
           </h2>
           <p className="text-[13.5px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -1065,7 +1065,7 @@ export function ResearchTimelinePanel({
         <p className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
           AUXILIARY WORKSPACE · RESEARCH TIMELINE
         </p>
-        <h2 className="font-editorial text-[26px] mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
+        <h2 className="text-[22px] font-semibold mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
           Research Timeline
         </h2>
         <p className="text-[13.5px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>

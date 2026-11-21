@@ -12,7 +12,7 @@ import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import type { Book, BookQuote } from '../../types';
 import { ResolvedImage } from '../../components/ImageGallery';
-import { ProgressBar, useToast } from '../../components/ui/Primitives';
+import { BackButton, Modal, useRoomBack, useToast } from '../../components/ui/Primitives';
 
 const READING_TEXT_STORAGE_KEY = 'noetrix_reading_room_texts_v1';
 
@@ -57,11 +57,17 @@ export function ReadingRoomSanctuary({
   const { t } = useLanguage();
 
   const [fullViewport, setFullViewport] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deskTab, setDeskTab] = useState<DeskTab>('reader');
   const [surface, setSurface] = useState<PaperSurface>('noir');
   const [fontSize, setFontSize] = useState<number>(18);
   const [useSerif, setUseSerif] = useState<boolean>(true);
   const [ambientMode, setAmbientMode] = useState<AmbientSoundMode>('silent');
+
+  useRoomBack(!fullViewport, () => {
+    setAmbientMode('silent');
+    onCloseRoom();
+  });
 
   // Reading Session Timer (default 25 min)
   const [timerPresetMin, setTimerPresetMin] = useState<number>(25);
@@ -82,9 +88,20 @@ export function ReadingRoomSanctuary({
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
   const [savingQuote, setSavingQuote] = useState(false);
 
+  // Simple Page Capture + Note Composer (Captured Pages tab)
+  const [pageCameraActive, setPageCameraActive] = useState(false);
+  const [pageCapturedFile, setPageCapturedFile] = useState<File | null>(null);
+  const [pagePreviewUrl, setPagePreviewUrl] = useState<string | null>(null);
+  const [pageNote, setPageNote] = useState('');
+  const [pageNumber, setPageNumber] = useState('');
+  const [savingPageCapture, setSavingPageCapture] = useState(false);
+
   const ebookInputRef = useRef<HTMLInputElement>(null);
   const quoteFileRef = useRef<HTMLInputElement>(null);
   const quoteCameraRef = useRef<HTMLInputElement>(null);
+  const pageVideoRef = useRef<HTMLVideoElement>(null);
+  const pageStreamRef = useRef<MediaStream | null>(null);
+  const pageFallbackInputRef = useRef<HTMLInputElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const noiseNodeRef = useRef<AudioNode | null>(null);
 
@@ -226,8 +243,8 @@ export function ReadingRoomSanctuary({
           });
           showToast(
             t(
-              'Reading session complete! Logged to Life Balance · +35 XP',
-              'Hoàn thành phiên đọc sách! Đã ghi nhận vào Nhịp sống · +35 XP'
+              'Reading session complete! Logged to Life Balance',
+              'Hoàn thành phiên đọc sách! Đã ghi nhận vào Nhịp sống'
             )
           );
           return 0;
@@ -323,11 +340,115 @@ export function ReadingRoomSanctuary({
       setQuoteFile(null);
       showToast(
         uploadedToCloud
-          ? t('Saved quote & page photo to Cloudinary · +15 XP', 'Đã lưu trích dẫn & ảnh lên Cloudinary · +15 XP')
-          : t('Saved highlight to book · +15 XP', 'Đã lưu trích dẫn vào sách · +15 XP')
+          ? t('Saved quote & page photo to Cloudinary', 'Đã lưu trích dẫn & ảnh lên Cloudinary')
+          : t('Saved highlight to book', 'Đã lưu trích dẫn vào sách')
       );
     } finally {
       setSavingQuote(false);
+    }
+  };
+
+  const stopPageCamera = () => {
+    if (pageStreamRef.current) {
+      pageStreamRef.current.getTracks().forEach((track) => track.stop());
+      pageStreamRef.current = null;
+    }
+    setPageCameraActive(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pageStreamRef.current) {
+        pageStreamRef.current.getTracks().forEach((track) => track.stop());
+        pageStreamRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pageCapturedFile) {
+      setPagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pageCapturedFile);
+    setPagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pageCapturedFile]);
+
+  const startPageCamera = async () => {
+    stopPageCamera();
+    setPageCapturedFile(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        pageFallbackInputRef.current?.click();
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 }, height: { ideal: 1200 } },
+        audio: false,
+      });
+      pageStreamRef.current = stream;
+      setPageCameraActive(true);
+      requestAnimationFrame(() => {
+        if (pageVideoRef.current) {
+          pageVideoRef.current.srcObject = stream;
+          pageVideoRef.current.play().catch(() => {});
+        }
+      });
+    } catch {
+      pageFallbackInputRef.current?.click();
+    }
+  };
+
+  const snapPagePhoto = () => {
+    const video = pageVideoRef.current;
+    if (!video || video.videoWidth === 0) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `book-page-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setPageCapturedFile(file);
+        stopPageCamera();
+      },
+      'image/jpeg',
+      0.92
+    );
+  };
+
+  const handleSavePageCapture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeBook || !pageCapturedFile) return;
+    setSavingPageCapture(true);
+    try {
+      const compressed = await compressImageFile(pageCapturedFile);
+      const saved = await saveMediaLocalAndMaybeUpload('image', compressed.blob, compressed.fileName, {
+        subFolder: 'books/quotes',
+      });
+      const newQuote: BookQuote = {
+        id: createId('qt'),
+        text: pageNote.trim() || t('Captured page', 'Trang sách chụp'),
+        page: pageNumber.trim() || (activeBook.currentPage ? `p.${activeBook.currentPage}` : ''),
+        imageMediaId: saved.mediaId,
+        imageRemoteUrl: saved.remoteUrl,
+        createdAt: Date.now(),
+      };
+      await db.books.update(activeBook.id, {
+        quotes: [newQuote, ...activeBook.quotes],
+        updatedAt: Date.now(),
+      });
+      await awardXp(15);
+      setPageCapturedFile(null);
+      setPageNote('');
+      setPageNumber('');
+      showToast(t('Saved page & note', 'Đã lưu ảnh trang & ghi chú'));
+    } finally {
+      setSavingPageCapture(false);
     }
   };
 
@@ -390,21 +511,14 @@ export function ReadingRoomSanctuary({
           style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}` }}
         >
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                setAmbientMode('silent');
-                onCloseRoom();
-              }}
-              className="px-3 py-1.5 rounded-lg metadata text-[11px] uppercase tracking-wider cursor-pointer hover:opacity-85"
-              style={{
-                backgroundColor: 'rgba(203, 168, 106, 0.12)',
-                color: '#cba86a',
-                border: '1px solid rgba(203, 168, 106, 0.3)',
-              }}
-            >
-              {t('← Exit Reading Room', '← Thu gọn về Kệ Sách')}
-            </button>
+            {fullViewport && (
+              <BackButton
+                onClick={() => {
+                  setAmbientMode('silent');
+                  onCloseRoom();
+                }}
+              />
+            )}
 
             {books.length > 0 ? (
               <div className="flex items-center gap-2">
@@ -445,26 +559,7 @@ export function ReadingRoomSanctuary({
             {activeBook && (
               <button
                 type="button"
-                onClick={async () => {
-                  if (
-                    !window.confirm(
-                      t(
-                        `Remove "${activeBook.title}" from your library?`,
-                        `Xóa cuốn "${activeBook.title}" khỏi thư viện?`
-                      )
-                    )
-                  ) {
-                    return;
-                  }
-                  const remaining = books.filter((b) => b.id !== activeBook.id);
-                  await db.books.delete(activeBook.id);
-                  showToast(t('Deleted book', 'Đã xóa sách'), 'info');
-                  if (remaining.length > 0) {
-                    onSelectBookId(remaining[0].id);
-                  } else {
-                    onCloseRoom();
-                  }
-                }}
+                onClick={() => setConfirmDeleteOpen(true)}
                 className="px-3 py-1.5 rounded-lg metadata text-[11px] font-semibold cursor-pointer transition-colors hover:bg-red-500/15"
                 style={{
                   backgroundColor: theme.bg,
@@ -503,7 +598,7 @@ export function ReadingRoomSanctuary({
             className="rounded-xl p-12 text-center space-y-3"
             style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}` }}
           >
-            <p className="font-editorial text-[26px]">
+            <p className="text-[20px] font-semibold">
               {t('Your Reading Desk is ready.', 'Bàn đọc sách của bạn đã sẵn sàng.')}
             </p>
             <p className="text-[14px]" style={{ color: theme.muted }}>
@@ -534,15 +629,15 @@ export function ReadingRoomSanctuary({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: theme.border }}>
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="metadata text-[10px] uppercase tracking-[0.16em]" style={{ color: '#cba86a' }}>
+                    <span className="text-[11px] font-medium" style={{ color: '#cba86a' }}>
                       {activeBook.category}
                     </span>
                     <span style={{ color: theme.muted }}>·</span>
-                    <span className="metadata text-[10.5px]" style={{ color: theme.muted }}>
+                    <span className="text-[11px] font-medium" style={{ color: theme.muted }}>
                       {activeBook.author}
                     </span>
                   </div>
-                  <h2 className="font-editorial text-[26px] sm:text-[30px] leading-tight truncate">
+                  <h2 className="text-[22px] font-semibold leading-tight truncate">
                     {activeBook.title}
                   </h2>
                 </div>
@@ -673,7 +768,7 @@ export function ReadingRoomSanctuary({
                           });
                           await awardXp(15);
                           setSelectedSnippet('');
-                          showToast(t('Highlighted passage saved · +15 XP', 'Đã lưu đoạn bôi đen vào Trích dẫn · +15 XP'));
+                          showToast(t('Highlighted passage saved', 'Đã lưu đoạn bôi đen vào Trích dẫn'));
                         }}
                         className="px-3 py-1.5 rounded-lg text-[12px] font-semibold shrink-0 cursor-pointer"
                         style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
@@ -724,44 +819,132 @@ export function ReadingRoomSanctuary({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <p className="text-[13px]" style={{ color: theme.muted }}>
-                      {t(
-                        'Reading a physical book? Capture or upload photos of key pages to inspect and annotate here.',
-                        'Đang đọc sách giấy? Chụp hoặc tải ảnh các trang sách tâm đắc để phóng to và đối chiếu ngay tại bàn đọc.'
-                      )}
+                      {t('Capture a page and write a quick note.', 'Chụp trang sách và ghi lại ghi chú.')}
                     </p>
-                    <div className="flex items-center gap-2">
+                    {!pageCameraActive && !pageCapturedFile && (
                       <button
                         type="button"
-                        onClick={() => quoteCameraRef.current?.click()}
-                        className="px-3 py-1.5 rounded-lg text-[12px] font-semibold cursor-pointer"
+                        onClick={startPageCamera}
+                        className="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold cursor-pointer"
                         style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
                       >
-                        {t('Capture Page', 'Chụp trang sách')}
+                        {t('Capture Page', 'Chụp trang')}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => quoteFileRef.current?.click()}
-                        className="px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer"
-                        style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text }}
-                      >
-                        {t('Upload Photo', 'Chọn ảnh')}
-                      </button>
-                    </div>
+                    )}
                   </div>
 
-                  {pagePhotos.length === 0 ? (
+                  <input
+                    ref={pageFallbackInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setPageCapturedFile(f);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  {pageCameraActive && (
                     <div
-                      className="py-16 rounded-xl text-center space-y-2 border border-dashed"
+                      className="rounded-xl p-3 space-y-3"
+                      style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}` }}
+                    >
+                      <div className="rounded-lg overflow-hidden bg-black max-h-[360px]">
+                        <video ref={pageVideoRef} autoPlay playsInline muted className="w-full max-h-[360px] object-contain" />
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={stopPageCamera}
+                          className="px-3 py-1.5 rounded-lg text-[12px] cursor-pointer"
+                          style={{ border: `1px solid ${theme.border}`, color: theme.muted }}
+                        >
+                          {t('Cancel', 'Hủy')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={snapPagePhoto}
+                          className="px-4 py-1.5 rounded-lg text-[12px] font-semibold cursor-pointer"
+                          style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
+                        >
+                          {t('Snap', 'Chụp')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {pageCapturedFile && pagePreviewUrl && (
+                    <form
+                      onSubmit={handleSavePageCapture}
+                      className="rounded-xl p-4 space-y-3"
+                      style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}` }}
+                    >
+                      <div className="rounded-lg overflow-hidden bg-black/40 max-h-[320px]">
+                        <img src={pagePreviewUrl} alt="Captured page preview" className="w-full max-h-[320px] object-contain" />
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={pageNote}
+                        onChange={(e) => setPageNote(e.target.value)}
+                        placeholder={t('Write a note for this page...', 'Ghi chú cho trang này...')}
+                        className="w-full p-3 rounded-xl text-[13.5px] leading-relaxed"
+                        style={{ backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}` }}
+                      />
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <input
+                          type="text"
+                          value={pageNumber}
+                          onChange={(e) => setPageNumber(e.target.value)}
+                          placeholder={t('Page (optional)', 'Trang (tùy chọn)')}
+                          className="w-32 px-2.5 py-1.5 rounded-lg text-[12px]"
+                          style={{ backgroundColor: theme.cardBg, color: theme.text, border: `1px solid ${theme.border}` }}
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPageCapturedFile(null);
+                              startPageCamera();
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-[12px] cursor-pointer"
+                            style={{ border: `1px solid ${theme.border}`, color: theme.text }}
+                          >
+                            {t('Retake', 'Chụp lại')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPageCapturedFile(null);
+                              setPageNote('');
+                              setPageNumber('');
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-[12px] cursor-pointer"
+                            style={{ border: `1px solid ${theme.border}`, color: theme.muted }}
+                          >
+                            {t('Cancel', 'Hủy')}
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={savingPageCapture}
+                            className="px-4 py-1.5 rounded-lg text-[12px] font-semibold cursor-pointer disabled:opacity-50"
+                            style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
+                          >
+                            {savingPageCapture ? '...' : t('Save', 'Lưu')}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+
+                  {pagePhotos.length === 0 && !pageCameraActive && !pageCapturedFile ? (
+                    <div
+                      className="py-16 rounded-xl text-center border border-dashed"
                       style={{ borderColor: theme.border }}
                     >
-                      <p className="text-[14.5px] font-medium">
-                        {t('No captured book pages yet.', 'Chưa có ảnh chụp trang sách nào.')}
-                      </p>
-                      <p className="text-[12.5px]" style={{ color: theme.muted }}>
-                        {t(
-                          'Use the Marginalia box on the right or the button above to attach a page photo.',
-                          'Bấm nút chụp ảnh phía trên hoặc đính kèm ảnh ở cột Trích dẫn bên phải.'
-                        )}
+                      <p className="text-[14px]" style={{ color: theme.muted }}>
+                        {t('No captured pages yet.', 'Chưa có trang sách nào được chụp.')}
                       </p>
                     </div>
                   ) : (
@@ -780,13 +963,28 @@ export function ReadingRoomSanctuary({
                               className="w-full h-full object-contain max-h-[380px]"
                             />
                           </div>
-                          <div className="flex items-center justify-between text-[12px]">
-                            <span className="font-medium truncate">{q.text}</span>
-                            {q.page && (
-                              <span className="metadata text-[11px]" style={{ color: '#cba86a' }}>
-                                {q.page}
-                              </span>
-                            )}
+                          <div className="flex items-start justify-between gap-2 text-[12.5px]">
+                            <p className="leading-relaxed">{q.text}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {q.page && (
+                                <span className="metadata text-[11px]" style={{ color: '#cba86a' }}>
+                                  {q.page}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  db.books.update(activeBook.id, {
+                                    quotes: activeBook.quotes.filter((x) => x.id !== q.id),
+                                    updatedAt: Date.now(),
+                                  })
+                                }
+                                className="text-[11px] text-[#6b7280] hover:text-red-400 cursor-pointer"
+                                title={t('Delete', 'Xóa')}
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -854,85 +1052,9 @@ export function ReadingRoomSanctuary({
             </div>
 
             {/* ==============================================================
-                RIGHT 4 COLS: PAGE PROGRESS TRACKER & MARGINALIA QUOTES
+                RIGHT 4 COLS: MARGINALIA QUOTES
                 ============================================================== */}
             <aside className="lg:col-span-4 space-y-5">
-              {/* Live Page Progress Card */}
-              <div
-                className="rounded-xl p-5 space-y-4"
-                style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}` }}
-              >
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#cba86a' }}>
-                      {t('READING PROGRESS', 'TIẾN ĐỘ ĐỌC')}
-                    </span>
-                    <p className="font-editorial text-[26px] leading-none mt-1 tabular-nums">
-                      {t('Page', 'Trang')} {activeBook.currentPage}{' '}
-                      <span className="text-[15px]" style={{ color: theme.muted }}>
-                        / {activeBook.totalPages}
-                      </span>
-                    </p>
-                  </div>
-                  <span className="metadata text-[15px] font-bold tabular-nums" style={{ color: '#34d399' }}>
-                    {pct}%
-                  </span>
-                </div>
-
-                <ProgressBar
-                  value={activeBook.currentPage}
-                  max={activeBook.totalPages}
-                  positive={activeBook.status === 'finished'}
-                />
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onAddPages(activeBook, 1)}
-                    className="px-2.5 py-1.5 rounded-lg metadata text-[11.5px] cursor-pointer"
-                    style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text }}
-                  >
-                    +1 {t('p', 'tr')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAddPages(activeBook, 5)}
-                    className="px-2.5 py-1.5 rounded-lg metadata text-[11.5px] cursor-pointer"
-                    style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: '#cba86a' }}
-                  >
-                    +5 {t('p', 'tr')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAddPages(activeBook, 15)}
-                    className="px-3 py-1.5 rounded-lg metadata text-[11.5px] font-semibold cursor-pointer"
-                    style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
-                  >
-                    +15 {t('pages', 'trang')}
-                  </button>
-                  <input
-                    type="number"
-                    min={0}
-                    max={activeBook.totalPages}
-                    value={activeBook.currentPage}
-                    onChange={(e) =>
-                      db.books.update(activeBook.id, {
-                        currentPage: Math.min(
-                          activeBook.totalPages,
-                          Math.max(0, Number(e.target.value) || 0)
-                        ),
-                        status:
-                          Number(e.target.value) >= activeBook.totalPages ? 'finished' : 'reading',
-                        updatedAt: Date.now(),
-                      })
-                    }
-                    className="w-16 px-2 py-1.5 rounded-lg metadata text-[12px] tabular-nums ml-auto"
-                    style={{ backgroundColor: theme.bg, border: `1px solid ${theme.border}`, color: theme.text }}
-                    title={t('Jump to page', 'Nhập trang hiện tại')}
-                  />
-                </div>
-              </div>
-
               {/* Marginalia & Quote Capture Box */}
               <div
                 className="rounded-xl p-5 space-y-4"
@@ -1083,6 +1205,50 @@ export function ReadingRoomSanctuary({
           </div>
         )}
       </div>
+
+      <Modal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title={t('Remove Book', 'Xóa Sách')}
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-4">
+          <p className="text-[14px] text-[var(--ios-label-secondary)] leading-relaxed">
+            {t(
+              `Remove "${activeBook?.title || ''}" from your library?`,
+              `Bạn có chắc muốn xóa "${activeBook?.title || ''}" khỏi thư viện?`
+            )}
+          </p>
+          <div className="flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(false)}
+              className="px-4 py-2 rounded-[10px] ios-fill text-[13.5px] font-medium cursor-pointer"
+            >
+              {t('Cancel', 'Hủy')}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!activeBook) return;
+                const remaining = books.filter((b) => b.id !== activeBook.id);
+                await db.books.delete(activeBook.id);
+                setConfirmDeleteOpen(false);
+                showToast(t('Deleted book', 'Đã xóa sách'), 'info');
+                if (remaining.length > 0) {
+                  onSelectBookId(remaining[0].id);
+                } else {
+                  onCloseRoom();
+                }
+              }}
+              className="px-4 py-2 rounded-[10px] text-[13.5px] font-semibold text-white cursor-pointer"
+              style={{ backgroundColor: 'var(--ios-red)' }}
+            >
+              {t('Delete', 'Xóa')}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 

@@ -39,32 +39,23 @@ const STUDIO_SIDEBAR_GROUPS: {
     code: '2.1',
     title: 'OVERVIEW',
     modules: [
-      { id: 'overview', group: '2.1', label: 'Story Overview', tag: 'Logline' },
-      { id: 'story_bible', group: '2.1', label: 'Story Structure', tag: '5-Act' },
+      { id: 'overview', group: '2.1', label: 'Story Overview', tag: 'Premise' },
+      { id: 'story_bible', group: '2.1', label: 'Story Structure', tag: 'Outline' },
     ],
   },
   {
     code: '2.2',
-    title: 'STORY DEVELOPMENT',
+    title: 'STORY WORLD',
     modules: [
-      { id: 'characters', group: '2.2', label: 'Characters', tag: '12' },
-      { id: 'locations', group: '2.2', label: 'Locations & Settings', tag: '8' },
-      { id: 'timeline', group: '2.2', label: 'Timeline & Chronology', tag: 'Day 1-7' },
+      { id: 'characters', group: '2.2', label: 'Characters', tag: '0' },
+      { id: 'timeline', group: '2.2', label: 'Timeline', tag: '0' },
     ],
   },
   {
     code: '2.3',
     title: 'WRITING',
     modules: [
-      { id: 'screenplay', group: '2.3', label: 'Screenplay Editor', tag: 'P.43' },
-    ],
-  },
-  {
-    code: '2.4',
-    title: 'RESEARCH & RESOURCES',
-    modules: [
-      { id: 'research', group: '2.4', label: 'Research Library', tag: 'Cybernetics' },
-      { id: 'notes', group: '2.4', label: 'Notes & Idea Sparks', tag: '4' },
+      { id: 'screenplay', group: '2.3', label: 'Chapter Editor', tag: 'Ch. 1' },
     ],
   },
 ];
@@ -101,7 +92,13 @@ function loadScreenplayState(): ScreenplayStudioState {
           : projects[0].id;
         return {
           activeProjectId: activeId,
-          activeModule: parsed.activeModule || 'screenplay',
+          activeModule:
+            parsed.activeModule &&
+            parsed.activeModule !== 'locations' &&
+            parsed.activeModule !== 'research' &&
+            parsed.activeModule !== 'notes'
+              ? parsed.activeModule
+              : 'screenplay',
           projects,
         };
       }
@@ -165,6 +162,17 @@ export function StoryStudio() {
 
   // Universal Search & Command Palette in studio
   const [universalSearch, setUniversalSearch] = useState('');
+
+  // Interactive Timeline Canvas (drag & connect events)
+  const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [draggingEvent, setDraggingEvent] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
 
   // Persist to localStorage & auto-save to source store
   useEffect(() => {
@@ -466,9 +474,6 @@ ${project.scenes.map((sc) => `
 
           {/* Project Switcher Dropdown */}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="metadata text-[11px]" style={{ color: 'rgba(217, 213, 203, 0.45)' }}>
-              Projects /
-            </span>
             <select
               value={project.id}
               onChange={(e) => {
@@ -477,13 +482,13 @@ ${project.scenes.map((sc) => `
                   const id = createId('proj');
                   const newProj: ScreenplayProject = {
                     id,
-                    title: `Project #${state.projects.length + 1}`,
-                    genre: 'Neo-Noir / Thriller',
-                    format: 'Feature Film',
-                    status: 'Development',
-                    draftSubtitle: 'Draft 1 · Act I',
-                    currentTasks: 'Set up world bible & primary cast.',
-                    nextStep: 'Draft Scene 01.',
+                    title: `Truyện #${state.projects.length + 1}`,
+                    genre: 'Tiểu thuyết / Truyện ngắn',
+                    format: 'Novel · Story',
+                    status: 'First Draft',
+                    draftSubtitle: 'Bản thảo 1',
+                    currentTasks: 'Xây dựng nhân vật và bối cảnh.',
+                    nextStep: 'Viết Chương 01.',
                     bible: {
                       logline: '',
                       synopsis: '',
@@ -546,7 +551,7 @@ ${project.scenes.map((sc) => `
               type="text"
               value={universalSearch}
               onChange={(e) => setUniversalSearch(e.target.value)}
-              placeholder="Search screenplay, characters, locations, beat cards..."
+              placeholder="Tìm chương, nhân vật, bối cảnh, ghi chú..."
               className="w-full bg-transparent text-[12.5px]"
               style={{ color: '#EDEAE2' }}
             />
@@ -575,18 +580,6 @@ ${project.scenes.map((sc) => `
           >
             <span>+</span> Quick Create
           </button>
-
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] metadata text-[10.5px]"
-            style={{
-              backgroundColor: '#191B20',
-              color: 'rgba(217, 213, 203, 0.65)',
-              border: '1px solid rgba(217, 213, 203, 0.06)',
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10b981' }} />
-            Cloud Synced
-          </div>
         </div>
       </header>
 
@@ -595,20 +588,20 @@ ${project.scenes.map((sc) => `
           - Left Sidebar (230px): 4 Grouped Sections (2.1..2.4)
           - Rest of Canvas: When in 'characters' -> Center List + Right Dossier
           ================================================================ */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
         {/* ==============================================================
-            LEFT STUDIO SIDEBAR (2.5 cols / ~240px): Project Dossier + Tree + Scene Index
+            LEFT STUDIO SIDEBAR (270px): Story Dossier + Modules + Chapters
             ============================================================== */}
         {!(screenplayFocusMode && state.activeModule === 'screenplay') && (
           <aside
-            className="lg:col-span-2 p-3.5 space-y-5 flex flex-col justify-between"
+            className="w-full lg:w-[270px] shrink-0 p-4 space-y-5 flex flex-col justify-between"
             style={{
               backgroundColor: '#0c0e12',
               borderRight: '1px solid rgba(217, 213, 203, 0.08)',
             }}
           >
             <div className="space-y-4">
-              {/* Project Micro-header (Matches HTML PROJECT DOSSIER) */}
+              {/* Story Dossier */}
               <div
                 className="p-3 rounded-lg space-y-1.5"
                 style={{
@@ -616,9 +609,9 @@ ${project.scenes.map((sc) => `
                   border: '1px solid rgba(217, 213, 203, 0.08)',
                 }}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="metadata text-[9.5px] uppercase tracking-widest font-semibold" style={{ color: '#eac16f' }}>
-                    PROJECT DOSSIER
+                    STORY DOSSIER
                   </span>
                   <span className="metadata text-[9px] text-[#9a8f7f]">
                     {project.status}
@@ -627,19 +620,15 @@ ${project.scenes.map((sc) => `
                 <p className="font-editorial text-[14.5px] font-semibold leading-tight truncate text-[#e2e2e8]">
                   {project.title}
                 </p>
-                <p className="metadata text-[10px] text-[#d1c5b3]">
-                  {project.format || 'Feature Film · 5-Act Structure'}
-                </p>
                 <div className="pt-2 border-t border-[#4e4638]/25 flex items-center justify-between metadata text-[10px] text-[#d1c5b3]">
-                  <span>Tiến độ Hồi II: 68%</span>
-                  <span className="text-[#eac16f] font-semibold">Seq. 4 / 8</span>
-                </div>
-                <div className="w-full h-1 bg-[#1e2024] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#eac16f]" style={{ width: '68%' }} />
+                  <span>{project.scenes.length} chương</span>
+                  <span className="text-[#eac16f] font-semibold">
+                    {project.scenes.reduce((acc, sc) => acc + countSceneWords(sc), 0).toLocaleString()} từ
+                  </span>
                 </div>
               </div>
 
-              {/* 4 Technical Groups (2.1 OVERVIEW, 2.2 STORY DEV, 2.3 WRITING, 2.4 RESEARCH) */}
+              {/* 4 Navigation Groups */}
               <nav className="space-y-4">
                 {STUDIO_SIDEBAR_GROUPS.map((grp) => (
                   <div key={grp.code} className="space-y-1">
@@ -655,7 +644,9 @@ ${project.scenes.map((sc) => `
                         let badgeVal = mod.tag;
                         if (mod.id === 'characters') badgeVal = String(project.characters.length);
                         if (mod.id === 'locations') badgeVal = String(project.locations.length);
-                        if (mod.id === 'screenplay') badgeVal = 'Act 2';
+                        if (mod.id === 'timeline') badgeVal = String(project.timeline.length);
+                        if (mod.id === 'screenplay') badgeVal = `${project.scenes.length} ch`;
+                        if (mod.id === 'research') badgeVal = String(project.research.length);
                         if (mod.id === 'notes') badgeVal = String(project.notes.length);
 
                         return (
@@ -670,14 +661,14 @@ ${project.scenes.map((sc) => `
                               fontWeight: active ? 600 : 500,
                             }}
                           >
-                            <span className="text-[12px] truncate flex items-center gap-1.5">
+                            <span className="text-[12.5px] truncate flex items-center gap-1.5 min-w-0">
                               {active && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#261900] animate-pulse" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#261900] shrink-0" />
                               )}
-                              {mod.label}
+                              <span className="truncate">{mod.label}</span>
                             </span>
                             <span
-                              className="metadata text-[9.5px] tabular-nums shrink-0 px-1.5 py-0.2 rounded-[4px]"
+                              className="metadata text-[9.5px] tabular-nums shrink-0 px-1.5 py-0.5 rounded-[4px]"
                               style={{
                                 backgroundColor: active ? 'rgba(38, 25, 0, 0.18)' : 'rgba(217, 213, 203, 0.06)',
                                 color: active ? '#261900' : 'rgba(217, 213, 203, 0.45)',
@@ -693,26 +684,25 @@ ${project.scenes.map((sc) => `
                 ))}
               </nav>
 
-              {/* QUICK SCENE OUTLINER (Active Story Flow — SCENE INDEX) */}
+              {/* CHAPTERS OUTLINER */}
               <div className="pt-2 border-t border-[#4e4638]/20 space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="metadata text-[9.5px] uppercase tracking-widest text-[#9a8f7f]">
-                    SCENE INDEX (ACT II)
+                    CHAPTERS
                   </span>
                   <button
                     type="button"
                     onClick={() => addScene('Act II-A — Đối đầu')}
                     className="metadata text-[10px] text-[#eac16f] hover:underline cursor-pointer"
                   >
-                    + Scene ({project.scenes.length})
+                    + Chapter ({project.scenes.length})
                   </button>
                 </div>
 
                 <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-0.5">
-                  {project.scenes.map((sc, idx) => {
+                  {project.scenes.map((sc) => {
                     const isCur = activeScene?.id === sc.id;
-                    const pageRanges = ['P. 12-15', 'P. 16-17', 'P. 18-21 (3/8 Pgs)', 'P. 22-24'];
-                    const durations = ['2.5 phút', '1.8 phút', '~ 3.0 phút', 'Chưa viết'];
+                    const words = countSceneWords(sc);
                     return (
                       <div
                         key={sc.id}
@@ -732,66 +722,57 @@ ${project.scenes.map((sc) => `
                         {isCur && (
                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#eac16f]" />
                         )}
-                        <div className="flex items-center justify-between metadata text-[9.5px]">
+                        <div className="flex items-center justify-between metadata text-[9.5px] gap-1">
                           <span className={isCur ? 'text-[#eac16f] font-bold tracking-wider' : 'text-[#9a8f7f] font-semibold'}>
-                            SCENE {sc.sceneNumber}
-                            {isCur ? ' · LIVE' : ''}
+                            CH. {sc.sceneNumber}
                           </span>
-                          <span
-                            className={
-                              isCur
-                                ? 'px-1.5 py-0.2 bg-[#eac16f]/20 text-[#eac16f] rounded font-semibold'
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={
+                                isCur
+                                  ? 'px-1.5 py-0.2 bg-[#eac16f]/20 text-[#eac16f] rounded font-semibold'
+                                  : sc.status === 'Locked'
+                                  ? 'text-[#eac16f]'
+                                  : 'text-[#9a8f7f]'
+                              }
+                            >
+                              {isCur
+                                ? 'ĐANG VIẾT'
                                 : sc.status === 'Locked'
-                                ? 'text-[#eac16f]'
-                                : 'text-[#9a8f7f]'
-                            }
-                          >
-                            {isCur
-                              ? 'ĐANG SOẠN'
-                              : sc.status === 'Locked'
-                              ? '✓ Done'
-                              : 'Kế tiếp'}
-                          </span>
+                                ? '✓ Xong'
+                                : 'Bản nháp'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const remaining = project.scenes.filter((x) => x.id !== sc.id);
+                                const nextId =
+                                  selectedSceneId === sc.id ? remaining[0]?.id || '' : selectedSceneId;
+                                updateProject({
+                                  scenes: remaining,
+                                  lastOpenedSceneId: nextId,
+                                });
+                                setSelectedSceneId(nextId);
+                              }}
+                              title="Xóa chương"
+                              className="px-1 rounded text-[10px] text-[#9a8f7f] hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                         <p className="text-[11.5px] font-semibold text-[#e2e2e8] mt-1 truncate">
-                          {sc.intExt} {sc.locationName} - {sc.timeOfDay}
+                          {sc.locationName || `Chương ${sc.sceneNumber}`}
                         </p>
                         <div className="flex items-center justify-between mt-1 metadata text-[9.5px] text-[#9a8f7f]">
-                          <span className={isCur ? 'text-[#e2c471] font-medium' : ''}>
-                            {pageRanges[idx] || `P. ${12 + idx * 3}`}
-                          </span>
-                          <span className={isCur ? 'text-[#eac16f] font-semibold' : ''}>
-                            {durations[idx] || '~ 2.0 phút'}
-                          </span>
+                          <span>{words.toLocaleString()} từ</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* Left Bottom Status: Screenplay AI Co-pilot */}
-            <div className="p-2.5 rounded-lg bg-[#1a1c20] border border-[#4e4638]/20 space-y-1.5">
-              <div className="flex items-center gap-1.5 metadata text-[10px]">
-                <span className="text-[#eac16f]">✦</span>
-                <span className="text-[#e2e2e8] font-semibold">Screenplay AI Co-pilot</span>
-              </div>
-              <p className="text-[11px] text-[#9a8f7f] leading-snug">
-                Sẵn sàng phân tích nhịp kịch bản và xung đột thoại theo phong cách Noir.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('success');
-                  showToast(
-                    `Scene ${activeScene?.sceneNumber || '06'}: Pacing Slow-Burn (8/10) · Subtext mạnh ở nhịp đũa rơi & tấm vé phà 2008`
-                  );
-                }}
-                className="w-full py-1.5 px-2 rounded bg-[#1e2024] hover:bg-[#282a2e] text-[#eac16f] metadata text-[10px] font-semibold transition-colors cursor-pointer"
-              >
-                ⚡ Phân tích nhịp Scene {activeScene?.sceneNumber || '06'}
-              </button>
             </div>
           </aside>
         )}
@@ -800,7 +781,7 @@ ${project.scenes.map((sc) => `
             MODULE 03: CHARACTERS (Matches the Single Column List + Dossier)
             ============================================================== */}
         {state.activeModule === 'characters' && (
-          <div className="lg:col-span-10 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+          <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 min-h-0">
             {/* ----------------------------------------------------------
                 CENTER COLUMN (5 cols / ~44%): Characters & Cast List
                 ---------------------------------------------------------- */}
@@ -1067,7 +1048,7 @@ ${project.scenes.map((sc) => `
                           type="text"
                           value={activeChar.name}
                           onChange={(e) => updateCharacter(activeChar.id, { name: e.target.value })}
-                          className="font-editorial text-[26px] font-bold w-full bg-transparent border-b border-[#B99B79]"
+                          className="text-[22px] font-semibold w-full bg-transparent border-b border-[#B99B79]"
                           style={{ color: '#EDEAE2' }}
                         />
                         <input
@@ -1081,7 +1062,7 @@ ${project.scenes.map((sc) => `
                       </div>
                     ) : (
                       <div>
-                        <h1 className="font-editorial text-[30px] sm:text-[34px] font-semibold leading-tight" style={{ color: '#EDEAE2' }}>
+                        <h1 className="text-[22px] font-semibold leading-tight" style={{ color: '#EDEAE2' }}>
                           {activeChar.name}
                         </h1>
                         <p className="text-[13px] mt-0.5" style={{ color: 'rgba(217, 213, 203, 0.55)' }}>
@@ -1331,13 +1312,13 @@ ${project.scenes.map((sc) => `
             MODULE 01: STORY OVERVIEW & BIBLE
             ============================================================== */}
         {state.activeModule === 'overview' && (
-          <div className="lg:col-span-10 p-6 sm:p-8 space-y-6">
+          <div className="flex-1 min-w-0 p-6 sm:p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-[rgba(217,213,203,0.08)] pb-4">
               <div>
                 <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
-                  2.1 OVERVIEW · DỰ ÁN KỊCH BẢN
+                  2.1 OVERVIEW · DỰ ÁN TRUYỆN
                 </span>
-                <h2 className="font-editorial text-[26px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
+                <h2 className="text-[17px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
                   {project.title}
                 </h2>
               </div>
@@ -1365,7 +1346,7 @@ ${project.scenes.map((sc) => `
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="metadata text-[10px] uppercase tracking-[0.1em]" style={{ color: '#B99B79' }}>
-                    Logline (Cốt truyện trong 1-2 câu)
+                    Premise (Ý tưởng cốt lõi trong 1-2 câu)
                   </label>
                   <textarea
                     rows={4}
@@ -1458,14 +1439,14 @@ ${project.scenes.map((sc) => `
             MODULE 02: LOCATIONS & SETTINGS
             ============================================================== */}
         {state.activeModule === 'locations' && (
-          <div className="lg:col-span-10 p-6 sm:p-8 space-y-6">
+          <div className="flex-1 min-w-0 p-6 sm:p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-[rgba(217,213,203,0.08)] pb-4">
               <div>
                 <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#A7B6D2' }}>
-                  2.2 STORY DEVELOPMENT · BỐI CẢNH & ĐỊA ĐIỂM ({project.locations.length})
+                  2.2 STORY WORLD · BỐI CẢNH & KHÔNG GIAN ({project.locations.length})
                 </span>
-                <h2 className="font-editorial text-[24px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
-                  Locations & Settings
+                <h2 className="text-[17px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
+                  Settings & World
                 </h2>
               </div>
               <button
@@ -1474,10 +1455,10 @@ ${project.scenes.map((sc) => `
                   const id = createId('loc');
                   const loc: ScreenplayLocation = {
                     id,
-                    name: 'Địa điểm mới',
+                    name: 'Bối cảnh mới',
                     intExt: 'INT.',
                     defaultTime: 'NIGHT',
-                    spatialContext: 'Không gian kiến trúc',
+                    spatialContext: '',
                     architecture: '',
                     lighting: '',
                     soundscape: '',
@@ -1490,7 +1471,7 @@ ${project.scenes.map((sc) => `
                 className="px-3 py-1.5 rounded-[8px] text-[12px] font-semibold cursor-pointer"
                 style={{ backgroundColor: '#B99B79', color: '#101114' }}
               >
-                + New Location
+                + New Setting
               </button>
             </div>
 
@@ -1501,32 +1482,34 @@ ${project.scenes.map((sc) => `
                   <div
                     key={loc.id}
                     onClick={() => setSelectedLocId(loc.id)}
-                    className="p-4 rounded-[12px] space-y-3 cursor-pointer transition-all"
+                    className="p-4 rounded-[12px] space-y-2.5 cursor-pointer transition-all"
                     style={{
                       backgroundColor: isSelected ? '#1E2026' : '#15171C',
                       border: isSelected ? '1px solid #B99B79' : '1px solid rgba(217,213,203,0.08)',
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="metadata text-[10px] font-bold px-2 py-0.5 rounded-[4px] bg-[#101114] text-[#B99B79]">
-                        {loc.intExt}
-                      </span>
-                      <span className="metadata text-[10px]" style={{ color: 'rgba(217,213,203,0.45)' }}>
-                        {loc.defaultTime}
-                      </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-editorial text-[18px] font-semibold" style={{ color: '#EDEAE2' }}>
+                        {loc.name}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateProject((curr) => ({
+                            ...curr,
+                            locations: curr.locations.filter((x) => x.id !== loc.id),
+                          }));
+                        }}
+                        className="text-[11px] text-[#6b7280] hover:text-red-400 cursor-pointer shrink-0"
+                        title="Xóa bối cảnh"
+                      >
+                        ✕
+                      </button>
                     </div>
-
-                    <h3 className="font-editorial text-[18px] font-semibold" style={{ color: '#EDEAE2' }}>
-                      {loc.name}
-                    </h3>
-                    <p className="text-[12.5px] leading-relaxed line-clamp-2" style={{ color: 'rgba(217,213,203,0.6)' }}>
+                    <p className="text-[12.5px] leading-relaxed line-clamp-3" style={{ color: 'rgba(217,213,203,0.65)' }}>
                       {loc.spatialContext || 'Chưa có mô tả bối cảnh'}
                     </p>
-
-                    <div className="text-[11px] space-y-1 pt-2 border-t border-[rgba(217,213,203,0.06)] metadata" style={{ color: 'rgba(217,213,203,0.45)' }}>
-                      <p>💡 {loc.lighting || 'Chưa thiết lập ánh sáng'}</p>
-                      <p>🔊 {loc.soundscape || 'Chưa thiết lập âm thanh'}</p>
-                    </div>
                   </div>
                 );
               })}
@@ -1557,53 +1540,324 @@ ${project.scenes.map((sc) => `
             MODULE 05: TIMELINE, RESEARCH, NOTES
             ============================================================== */}
         {(state.activeModule === 'timeline' || state.activeModule === 'research' || state.activeModule === 'notes') && (
-          <div className="lg:col-span-10 p-6 sm:p-8 space-y-6">
+          <div className="flex-1 min-w-0 p-6 sm:p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-[rgba(217,213,203,0.08)] pb-4">
               <div>
                 <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#B99B79' }}>
                   {state.activeModule.toUpperCase()} DOSSIER
                 </span>
-                <h2 className="font-editorial text-[24px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
+                <h2 className="text-[17px] font-semibold mt-1" style={{ color: '#EDEAE2' }}>
                   {state.activeModule === 'timeline'
-                    ? 'Timeline & Chronology'
+                    ? 'Timeline & Event Graph'
                     : state.activeModule === 'research'
                     ? 'Research Library'
                     : 'Notes & Idea Sparks'}
                 </h2>
               </div>
+              {state.activeModule === 'timeline' && (
+                <div className="flex items-center gap-2">
+                  {connectingFromId && (
+                    <button
+                      type="button"
+                      onClick={() => setConnectingFromId(null)}
+                      className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium cursor-pointer bg-[#1E2026] text-[#eac16f] border border-[#eac16f]/40"
+                    >
+                      Hủy nối (Esc)
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = project.timeline.length;
+                      const id = createId('ev');
+                      const newEv: TimelineEvent = {
+                        id,
+                        act: 'Act I — Thiết lập',
+                        order: idx + 1,
+                        timeMark: `Mốc ${idx + 1}`,
+                        title: `Sự kiện #${idx + 1}`,
+                        objectiveTruth: '',
+                        audienceKnowledge: '',
+                        secretOrTwist: '',
+                        revealTiming: '',
+                        consistencyNote: '',
+                        x: 40 + (idx % 3) * 290,
+                        y: 40 + Math.floor(idx / 3) * 190,
+                        connectedEventIds: [],
+                      };
+                      updateProject((curr) => ({ ...curr, timeline: [...curr.timeline, newEv] }));
+                      setEditingEventId(id);
+                    }}
+                    className="px-3.5 py-1.5 rounded-[8px] text-[12px] font-semibold cursor-pointer"
+                    style={{ backgroundColor: '#B99B79', color: '#101114' }}
+                  >
+                    + Thêm sự kiện
+                  </button>
+                </div>
+              )}
             </div>
 
             {state.activeModule === 'timeline' && (
-              <div className="space-y-4">
-                {project.timeline.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="p-4 rounded-[12px] space-y-2 bg-[#16181D] border border-[rgba(217,213,203,0.08)]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="metadata text-[10px] uppercase font-bold" style={{ color: '#B99B79' }}>
-                        {ev.act} · {ev.timeMark}
-                      </span>
+              <div className="space-y-3">
+                <p className="text-[12px] text-[#9ca3af]">
+                  Kéo thả thẻ sự kiện để sắp xếp vị trí. Bấm <strong>Nối →</strong> ở thẻ nguồn rồi bấm vào thẻ đích để kết nối sự kiện (bấm lên đường nối để gỡ).
+                </p>
+
+                <div
+                  className="relative w-full min-h-[540px] rounded-xl overflow-auto border border-[rgba(217,213,203,0.1)]"
+                  style={{
+                    backgroundColor: '#0e1015',
+                    backgroundImage: 'radial-gradient(rgba(217,213,203,0.08) 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                  }}
+                  onPointerMove={(e) => {
+                    if (!draggingEvent) return;
+                    const dx = e.clientX - draggingEvent.startX;
+                    const dy = e.clientY - draggingEvent.startY;
+                    const nextX = Math.max(12, draggingEvent.origX + dx);
+                    const nextY = Math.max(12, draggingEvent.origY + dy);
+                    updateProject((curr) => ({
+                      ...curr,
+                      timeline: curr.timeline.map((item) =>
+                        item.id === draggingEvent.id ? { ...item, x: nextX, y: nextY } : item
+                      ),
+                    }));
+                  }}
+                  onPointerUp={() => setDraggingEvent(null)}
+                  onPointerLeave={() => setDraggingEvent(null)}
+                >
+                  {/* SVG Connection Arrows Layer */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minWidth: '960px', minHeight: '540px' }}>
+                    <defs>
+                      <marker
+                        id="timeline-arrow"
+                        markerWidth="8"
+                        markerHeight="8"
+                        refX="7"
+                        refY="4"
+                        orient="auto"
+                      >
+                        <path d="M0,0 L8,4 L0,8 Z" fill="#eac16f" />
+                      </marker>
+                    </defs>
+                    {project.timeline.flatMap((fromEv, fIdx) => {
+                      const fx = (fromEv.x ?? 40 + (fIdx % 3) * 290) + 125;
+                      const fy = (fromEv.y ?? 40 + Math.floor(fIdx / 3) * 190) + 65;
+                      return (fromEv.connectedEventIds || []).map((toId) => {
+                        const tIdx = project.timeline.findIndex((x) => x.id === toId);
+                        if (tIdx === -1) return null;
+                        const toEv = project.timeline[tIdx];
+                        const tx = (toEv.x ?? 40 + (tIdx % 3) * 290) + 125;
+                        const ty = (toEv.y ?? 40 + Math.floor(tIdx / 3) * 190) + 65;
+                        const mx = (fx + tx) / 2;
+                        const pathD = `M ${fx} ${fy} C ${mx} ${fy}, ${mx} ${ty}, ${tx} ${ty}`;
+                        return (
+                          <g
+                            key={`${fromEv.id}->${toId}`}
+                            className="pointer-events-auto cursor-pointer group"
+                            onClick={() => {
+                              updateProject((curr) => ({
+                                ...curr,
+                                timeline: curr.timeline.map((item) =>
+                                  item.id === fromEv.id
+                                    ? {
+                                        ...item,
+                                        connectedEventIds: (item.connectedEventIds || []).filter((id) => id !== toId),
+                                      }
+                                    : item
+                                ),
+                              }));
+                            }}
+                          >
+                            <path d={pathD} stroke="transparent" strokeWidth={14} fill="none" />
+                            <path
+                              d={pathD}
+                              stroke="#eac16f"
+                              strokeWidth={2}
+                              strokeOpacity={0.75}
+                              fill="none"
+                              markerEnd="url(#timeline-arrow)"
+                              className="group-hover:stroke-red-400 transition-colors"
+                            />
+                          </g>
+                        );
+                      });
+                    })}
+                  </svg>
+
+                  {project.timeline.length === 0 ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 space-y-2">
+                      <p className="text-[14px] text-[#9ca3af]">
+                        Chưa có sự kiện nào trên sơ đồ.
+                      </p>
+                      <p className="text-[12px] text-[#6b7280]">
+                        Bấm <strong>+ Thêm sự kiện</strong> ở góc trên để tạo mốc sự kiện và kéo thả kết nối.
+                      </p>
                     </div>
-                    <h3 className="font-editorial text-[17px] font-semibold" style={{ color: '#EDEAE2' }}>
-                      {ev.title}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3 pt-2 text-[12.5px] leading-relaxed">
-                      <div>
-                        <span className="metadata text-[9.5px] uppercase block" style={{ color: '#A7B6D2' }}>
-                          Sự thật thực tế
-                        </span>
-                        <p style={{ color: '#EDEAE2' }}>{ev.objectiveTruth}</p>
-                      </div>
-                      <div>
-                        <span className="metadata text-[9.5px] uppercase block" style={{ color: '#C27B76' }}>
-                          Khán giả được biết
-                        </span>
-                        <p style={{ color: 'rgba(217,213,203,0.7)' }}>{ev.audienceKnowledge}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ) : (
+                    project.timeline.map((ev, idx) => {
+                      const posX = ev.x ?? 40 + (idx % 3) * 290;
+                      const posY = ev.y ?? 40 + Math.floor(idx / 3) * 190;
+                      const isSource = connectingFromId === ev.id;
+                      const isEditing = editingEventId === ev.id;
+
+                      return (
+                        <div
+                          key={ev.id}
+                          style={{ left: `${posX}px`, top: `${posY}px`, width: '250px' }}
+                          onClick={() => {
+                            if (connectingFromId && connectingFromId !== ev.id) {
+                              updateProject((curr) => ({
+                                ...curr,
+                                timeline: curr.timeline.map((item) => {
+                                  if (item.id !== connectingFromId) return item;
+                                  const existing = item.connectedEventIds || [];
+                                  const next = existing.includes(ev.id)
+                                    ? existing.filter((id) => id !== ev.id)
+                                    : [...existing, ev.id];
+                                  return { ...item, connectedEventIds: next };
+                                }),
+                              }));
+                              setConnectingFromId(null);
+                            }
+                          }}
+                          className={`absolute rounded-xl p-3 space-y-2 bg-[#16181D] shadow-xl select-none transition-shadow ${
+                            isSource
+                              ? 'border-2 border-[#eac16f] ring-2 ring-[#eac16f]/30'
+                              : connectingFromId
+                              ? 'border border-dashed border-[#eac16f]/60 hover:border-[#eac16f] cursor-pointer'
+                              : 'border border-[rgba(217,213,203,0.14)]'
+                          }`}
+                        >
+                          {/* Drag Handle Header */}
+                          <div
+                            onPointerDown={(e) => {
+                              if ((e.target as HTMLElement).closest('button,input,textarea')) return;
+                              e.currentTarget.setPointerCapture?.(e.pointerId);
+                              setDraggingEvent({
+                                id: ev.id,
+                                startX: e.clientX,
+                                startY: e.clientY,
+                                origX: posX,
+                                origY: posY,
+                              });
+                            }}
+                            className="flex items-center justify-between gap-1 cursor-grab active:cursor-grabbing pb-1.5 border-b border-[rgba(217,213,203,0.06)]"
+                          >
+                            <span className="metadata text-[10px] font-bold text-[#B99B79] truncate">
+                              ⋮⋮ {ev.timeMark || `Mốc ${idx + 1}`}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConnectingFromId(isSource ? null : ev.id);
+                                }}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer ${
+                                  isSource
+                                    ? 'bg-[#eac16f] text-[#0c0e12]'
+                                    : 'bg-[#1e2026] text-[#eac16f] hover:bg-[#282b33]'
+                                }`}
+                                title="Nối tới sự kiện khác"
+                              >
+                                {isSource ? 'Đang nối...' : 'Nối →'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingEventId(isEditing ? null : ev.id);
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[10px] bg-[#1e2026] text-[#d1d5db] hover:text-white cursor-pointer"
+                              >
+                                {isEditing ? 'Xong' : 'Sửa'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateProject((curr) => ({
+                                    ...curr,
+                                    timeline: curr.timeline
+                                      .filter((x) => x.id !== ev.id)
+                                      .map((x) => ({
+                                        ...x,
+                                        connectedEventIds: (x.connectedEventIds || []).filter((id) => id !== ev.id),
+                                      })),
+                                  }));
+                                  if (connectingFromId === ev.id) setConnectingFromId(null);
+                                }}
+                                className="px-1 text-[10px] text-[#6b7280] hover:text-red-400 cursor-pointer"
+                                title="Xóa sự kiện"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+
+                          {isEditing ? (
+                            <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={ev.timeMark}
+                                onChange={(e) =>
+                                  updateProject((curr) => ({
+                                    ...curr,
+                                    timeline: curr.timeline.map((item) =>
+                                      item.id === ev.id ? { ...item, timeMark: e.target.value } : item
+                                    ),
+                                  }))
+                                }
+                                placeholder="Mốc thời gian / Chương..."
+                                className="w-full px-2 py-1 rounded bg-[#0c0e12] text-[11px] text-[#B99B79] border border-[#2a303d]"
+                              />
+                              <input
+                                type="text"
+                                value={ev.title}
+                                onChange={(e) =>
+                                  updateProject((curr) => ({
+                                    ...curr,
+                                    timeline: curr.timeline.map((item) =>
+                                      item.id === ev.id ? { ...item, title: e.target.value } : item
+                                    ),
+                                  }))
+                                }
+                                placeholder="Tên sự kiện..."
+                                className="w-full px-2 py-1 rounded bg-[#0c0e12] text-[12.5px] font-semibold text-white border border-[#2a303d]"
+                              />
+                              <textarea
+                                rows={2}
+                                value={ev.objectiveTruth}
+                                onChange={(e) =>
+                                  updateProject((curr) => ({
+                                    ...curr,
+                                    timeline: curr.timeline.map((item) =>
+                                      item.id === ev.id ? { ...item, objectiveTruth: e.target.value } : item
+                                    ),
+                                  }))
+                                }
+                                placeholder="Mô tả diễn biến..."
+                                className="w-full px-2 py-1 rounded bg-[#0c0e12] text-[11.5px] text-[#d1d5db] border border-[#2a303d] resize-none"
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <h3 className="font-editorial text-[15.5px] font-semibold text-[#EDEAE2] leading-snug">
+                                {ev.title}
+                              </h3>
+                              {ev.objectiveTruth && (
+                                <p className="text-[11.5px] text-[#9ca3af] mt-1 line-clamp-3 leading-relaxed">
+                                  {ev.objectiveTruth}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
 

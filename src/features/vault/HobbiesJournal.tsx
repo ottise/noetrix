@@ -16,14 +16,9 @@ import {
   isCloudinaryConfigured,
 } from '../../lib/cloudinary';
 import type { HobbyLog, HobbyLogType } from '../../types';
-import {
-  Card,
-  EmptyState,
-  Modal,
-  SegmentedControl,
-  useToast,
-} from '../../components/ui/Primitives';
+import { Modal, useToast } from '../../components/ui/Primitives';
 import { ResolvedImage } from '../../components/ImageGallery';
+import { MobileMonthCalendar } from '../../components/MobileMonthCalendar';
 
 const GYM_SPLITS = [
   'Push (Ngực / Vai / Tay sau)',
@@ -89,9 +84,6 @@ export function HobbiesJournal() {
     }
   }, [rawLogs]);
 
-  const [hobbyFilter, setHobbyFilter] = useState<'all' | HobbyLogType>('all');
-  const [vaultView, setVaultView] = useState<'by_date' | 'gallery'>('by_date');
-
   // Photo Calendar state
   const [viewCursor, setViewCursor] = useState<{ year: number; month: number }>(() => {
     const now = new Date();
@@ -99,8 +91,9 @@ export function HobbiesJournal() {
   });
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
-  // Quick Capture Studio Drawer (inline on page!)
+  // Quick Capture Studio Drawer (Locket-style 2-step capture -> post)
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [captureType, setCaptureType] = useState<HobbyLogType>('gym');
   const [captureDate, setCaptureDate] = useState<string>(todayStr);
   const [title, setTitle] = useState('');
@@ -109,12 +102,12 @@ export function HobbiesJournal() {
   const [distanceMeters, setDistanceMeters] = useState(500);
   const [stroke, setStroke] = useState('Bơi sải / Bơi ếch');
   const [gymSplit, setGymSplit] = useState(GYM_SPLITS[0]);
+  const [gymPhotoKind, setGymPhotoKind] = useState<'body' | 'scale'>('body');
   const [locationName, setLocationName] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [syncingAll, setSyncingAll] = useState(false);
 
   // Lightbox state
   const [lightboxLog, setLightboxLog] = useState<HobbyLog | null>(null);
@@ -142,37 +135,17 @@ export function HobbiesJournal() {
   const [apiSecret, setApiSecret] = useState(savedCloud?.apiSecret || '');
   const [folder, setFolder] = useState(savedCloud?.folder || 'noetrix');
 
-  const gymLogs = logs.filter((l) => l.type === 'gym');
-  const swimmingLogs = logs.filter((l) => l.type === 'swimming');
-  const drawingLogs = logs.filter((l) => l.type === 'drawing');
-  const placesLogs = logs.filter((l) => l.type === 'places');
-  const totalMeters = swimmingLogs.reduce((s, l) => s + (l.distanceMeters || 0), 0);
-
-  const unsyncedLogs = logs.filter(
-    (l) => Boolean(l.imageMediaId) && !l.imageRemoteUrl?.includes('cloudinary.com')
-  );
-
-  const filteredLogs = useMemo(
-    () => (hobbyFilter === 'all' ? logs : logs.filter((l) => l.type === hobbyFilter)),
-    [logs, hobbyFilter]
-  );
-
-  // Group all filtered logs by YYYY-MM-DD for Calendar & Date Vault
+  // Group all logs by YYYY-MM-DD for Calendar & Date Vault
   const logsByDate = useMemo(() => {
     const map = new Map<string, HobbyLog[]>();
-    for (const item of filteredLogs) {
+    for (const item of logs) {
       const d = item.date || todayStr;
       const list = map.get(d) || [];
       list.push(item);
       map.set(d, list);
     }
     return map;
-  }, [filteredLogs, todayStr]);
-
-  // Sorted list of dates that have captures
-  const sortedDateGroups = useMemo(() => {
-    return Array.from(logsByDate.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [logsByDate]);
+  }, [logs, todayStr]);
 
   const gridDays = useMemo(
     () => getMondayGridDays(viewCursor.year, viewCursor.month),
@@ -193,6 +166,23 @@ export function HobbiesJournal() {
   }, [logsByDate, monthPrefix]);
 
   const selectedDateLogs = logsByDate.get(selectedDate) || [];
+
+  const getGymDayStatus = (dateStr: string) => {
+    const dayGymLogs = logs.filter(
+      (l) => (l.date || todayStr) === dateStr && l.type === 'gym' && Boolean(l.imageMediaId || l.imageRemoteUrl)
+    );
+    const hasBody = dayGymLogs.some((l) => l.gymPhotoKind === 'body');
+    const hasScale = dayGymLogs.some((l) => l.gymPhotoKind === 'scale');
+    const count = (hasBody ? 1 : 0) + (hasScale ? 1 : 0);
+    return {
+      hasAnyGym: dayGymLogs.length > 0,
+      hasBody,
+      hasScale,
+      count,
+      isComplete: hasBody && hasScale,
+      isIncomplete: dayGymLogs.length > 0 && (!hasBody || !hasScale),
+    };
+  };
 
   // Preview URL lifecycle
   useEffect(() => {
@@ -338,7 +328,12 @@ export function HobbiesJournal() {
     const dateToUse = options?.targetDate || selectedDate || todayStr;
     setCaptureType(type);
     setCaptureDate(dateToUse);
-    setTitle(defaultTitleForType(type));
+    if (type === 'gym') {
+      const gymStatus = getGymDayStatus(dateToUse);
+      setGymPhotoKind(gymStatus.hasBody && !gymStatus.hasScale ? 'scale' : 'body');
+    }
+    setTitle('');
+    setShowDatePicker(false);
     setDuration(type === 'gym' ? 60 : type === 'swimming' ? 45 : 30);
     setDetails('');
     setLocationName('');
@@ -358,6 +353,10 @@ export function HobbiesJournal() {
 
   const switchCaptureType = (nextType: HobbyLogType) => {
     setCaptureType(nextType);
+    if (nextType === 'gym') {
+      const gymStatus = getGymDayStatus(captureDate || selectedDate || todayStr);
+      setGymPhotoKind(gymStatus.hasBody && !gymStatus.hasScale ? 'scale' : 'body');
+    }
     if (
       !title.trim() ||
       title === defaultTitleForType('gym') ||
@@ -393,16 +392,25 @@ export function HobbiesJournal() {
       }
 
       const finalDate = captureDate || selectedDate || todayStr;
+      const resolvedTitle =
+        title.trim() ||
+        (captureType === 'gym'
+          ? gymPhotoKind === 'body'
+            ? t('Gym · Body', 'Gym · Body')
+            : t('Gym · Weight', 'Gym · Weight')
+          : defaultTitleForType(captureType));
+
       const item: HobbyLog = {
         id: createId('hb'),
         type: captureType,
         date: finalDate,
-        title: title.trim() || defaultTitleForType(captureType),
+        title: resolvedTitle,
         durationMinutes: Math.max(5, Number(duration) || 30),
         details: details.trim(),
         distanceMeters: captureType === 'swimming' ? Number(distanceMeters) || 0 : undefined,
         stroke: captureType === 'swimming' ? stroke : undefined,
-        gymSplit: captureType === 'gym' ? gymSplit : undefined,
+        gymSplit: undefined,
+        gymPhotoKind: captureType === 'gym' ? gymPhotoKind : undefined,
         locationName: captureType === 'places' ? locationName.trim() : undefined,
         imageMediaId,
         imageRemoteUrl,
@@ -434,13 +442,34 @@ export function HobbiesJournal() {
       await awardXp(25);
       setSelectedDate(finalDate);
       setPendingFile(null);
+
+      if (captureType === 'gym') {
+        const prevStatus = getGymDayStatus(finalDate);
+        const nowHasBody = prevStatus.hasBody || (Boolean(imageMediaId || imageRemoteUrl) && gymPhotoKind === 'body');
+        const nowHasScale = prevStatus.hasScale || (Boolean(imageMediaId || imageRemoteUrl) && gymPhotoKind === 'scale');
+
+        if (!nowHasBody || !nowHasScale) {
+          const missingKind: 'body' | 'scale' = !nowHasBody ? 'body' : 'scale';
+          setGymPhotoKind(missingKind);
+          setTitle('');
+          startLiveCamera(facingMode);
+          showToast(
+            missingKind === 'scale'
+              ? t('Saved Body photo! Missing Weight photo for this day.', 'Đã lưu ảnh Body! Còn thiếu ảnh Weight hôm nay.')
+              : t('Saved Weight photo! Missing Body photo for this day.', 'Đã lưu ảnh Weight! Còn thiếu ảnh Body hôm nay.'),
+            'error'
+          );
+          return;
+        }
+      }
+
       setQuickCaptureOpen(false);
 
       if (pendingFile && uploadedToCloudinary) {
         showToast(
           t(
-            `Saved photo to ${formatShortDate(finalDate)} & Cloudinary · +25 XP`,
-            `Đã lưu ảnh vào kho ngày ${formatShortDate(finalDate)} & Cloudinary · +25 XP`
+            `Saved photo to ${formatShortDate(finalDate)} & Cloudinary`,
+            `Đã lưu ảnh vào kho ngày ${formatShortDate(finalDate)} & Cloudinary`
           )
         );
       } else if (pendingFile && cloudinaryErr) {
@@ -454,8 +483,8 @@ export function HobbiesJournal() {
       } else {
         showToast(
           t(
-            `Saved to Photo Vault (${formatShortDate(finalDate)}) · +25 XP`,
-            `Đã lưu vào Kho Ảnh ngày ${formatShortDate(finalDate)} · +25 XP`
+            `Saved to Photo Vault (${formatShortDate(finalDate)})`,
+            `Đã lưu vào Kho Ảnh ngày ${formatShortDate(finalDate)}`
           )
         );
       }
@@ -530,35 +559,6 @@ export function HobbiesJournal() {
       showToast(err instanceof Error ? err.message : t('Cloudinary upload error', 'Lỗi tải lên Cloudinary'), 'error');
     } finally {
       setSyncingId(null);
-    }
-  };
-
-  const handleSyncAllToCloudinary = async () => {
-    if (!isCloudinaryConfigured()) {
-      openCloudConfigModal();
-      return;
-    }
-    if (unsyncedLogs.length === 0) return;
-    setSyncingAll(true);
-    let okCount = 0;
-    try {
-      for (const log of unsyncedLogs) {
-        if (!log.imageMediaId) continue;
-        const secureUrl = await syncLocalMediaToCloudinary(
-          log.imageMediaId,
-          `hobbies/${log.type}`
-        );
-        await db.hobbyLogs.update(log.id, { imageRemoteUrl: secureUrl });
-        okCount++;
-      }
-      showToast(t(`Synced ${okCount} photos to Cloudinary`, `Đã đồng bộ ${okCount} ảnh lên Cloudinary`));
-    } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : t(`Synced ${okCount} photos, some failed`, `Đã đồng bộ ${okCount} ảnh, một số ảnh lỗi`),
-        'error'
-      );
-    } finally {
-      setSyncingAll(false);
     }
   };
 
@@ -648,54 +648,73 @@ export function HobbiesJournal() {
 
   void cloudConfigTick;
 
-  return (
-    <div className="space-y-6">
-      {/* ================================================================
-          01. INSTANT QUICK SNAP BAR + INLINE CAMERA STUDIO
-          ================================================================ */}
-      <div
-        className="rounded-2xl p-5 space-y-4"
-        style={{
-          backgroundColor: '#12151C',
-          border: '1px solid rgba(234, 193, 111, 0.25)',
-        }}
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="metadata text-[10.5px] uppercase tracking-[0.16em]" style={{ color: '#eac16f' }}>
-              {t('INSTANT PHOTO CAPTURE · DAILY MEMORY VAULT', 'CHỤP ẢNH NHANH · KHO LƯU ẢNH THEO NGÀY')}
-            </span>
-            <h2 className="font-editorial text-[24px] sm:text-[26px] leading-tight text-white">
-              {t(
-                'Snap your Gym, Swim, Sketches & Interesting Places',
-                'Chụp nhanh Tập Gym, Đi Bơi, Tranh Vẽ & Những Nơi Thú Vị'
-              )}
-            </h2>
-            <p className="text-[12.5px] text-[#9ca3af]">
-              {t(
-                'Click Quick Snap below, or press Ctrl+V anywhere on this page to paste a photo directly into your date calendar.',
-                'Bấm Chụp Ảnh Nhanh để mở Camera tức thì, hoặc bấm Ctrl+V ở bất kỳ đâu trên trang này để dán ảnh vào lịch.'
-              )}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() =>
-                launchQuickCapture(captureType, {
-                  autoCamera: true,
-                  targetDate: selectedDate,
-                })
-              }
-              className="px-4 py-2.5 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-transform hover:scale-[1.02] shadow-lg"
-              style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
-            >
-              {t('Quick Snap Camera', 'Chụp Ảnh Nhanh')}
-            </button>
-          </div>
+  const renderCategoryAndGymTags = () => {
+    const gymStatus = getGymDayStatus(captureDate || selectedDate || todayStr);
+    return (
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {(
+            [
+              ['gym', t('Gym', 'Gym')],
+              ['swimming', t('Swim', 'Bơi')],
+              ['drawing', t('Art', 'Vẽ')],
+              ['places', t('Places', 'Nơi ghé')],
+            ] as const
+          ).map(([cat, lbl]) => {
+            const active = captureType === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => switchCaptureType(cat)}
+                className="px-3.5 py-1 rounded-full text-[12px] font-medium cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: active ? 'rgba(234, 193, 111, 0.16)' : 'rgba(255, 255, 255, 0.06)',
+                  color: active ? '#eac16f' : '#9ca3af',
+                  border: active ? '1px solid rgba(234, 193, 111, 0.55)' : '1px solid transparent',
+                }}
+              >
+                {lbl}
+              </button>
+            );
+          })}
         </div>
 
+        {captureType === 'gym' && (
+          <div className="flex items-center justify-center gap-2">
+            {(
+              [
+                ['body', 'Body', gymStatus.hasBody],
+                ['scale', 'Weight', gymStatus.hasScale],
+              ] as const
+            ).map(([kind, lbl, done]) => {
+              const active = gymPhotoKind === kind;
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setGymPhotoKind(kind)}
+                  className="px-3.5 py-1 rounded-full text-[12px] font-medium cursor-pointer flex items-center gap-1.5 transition-colors"
+                  style={{
+                    backgroundColor: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
+                    color: active ? '#EDEAE2' : '#7f8796',
+                    border: active ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <span>{lbl}</span>
+                  {done && <span className="text-emerald-400">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
         {/* Hidden file inputs Always Mounted for 1-click upload */}
         <input
           ref={fileRef}
@@ -725,290 +744,272 @@ export function HobbiesJournal() {
           }}
         />
 
-        {/* 4 Category Quick-Snap Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-          {(
-            [
-              {
-                type: 'gym' as HobbyLogType,
-                title: t('Gym & Workouts', 'Đi Tập Gym'),
-                count: `${gymLogs.length} ${t('photos', 'lần')}`,
-                btn: t('Snap Gym', 'Chụp Gym'),
-                color: '#eac16f',
-              },
-              {
-                type: 'swimming' as HobbyLogType,
-                title: t('Swimming', 'Đi Bơi'),
-                count: `${totalMeters.toLocaleString('vi-VN')}m · ${swimmingLogs.length} ${t('sessions', 'buổi')}`,
-                btn: t('Snap Swim', 'Chụp Đi Bơi'),
-                color: 'var(--os-sage)',
-              },
-              {
-                type: 'drawing' as HobbyLogType,
-                title: t('Art & Sketch', 'Vẽ / Sketch'),
-                count: `${drawingLogs.length} ${t('works', 'bức vẽ')}`,
-                btn: t('Snap Sketch', 'Chụp Tranh Vẽ'),
-                color: 'var(--os-brass)',
-              },
-              {
-                type: 'places' as HobbyLogType,
-                title: t('Interesting Places', 'Nơi Thú Vị'),
-                count: `${placesLogs.length} ${t('places', 'điểm đến')}`,
-                btn: t('Snap Place', 'Chụp Nơi Thú Vị'),
-                color: 'var(--os-dusty-blue)',
-              },
-            ] as const
-          ).map((card) => (
-            <div
-              key={card.type}
-              className="p-3.5 rounded-xl flex flex-col justify-between gap-2.5"
-              style={{
-                backgroundColor: '#0e1117',
-                border: '1px solid #222834',
-              }}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[13px] font-semibold text-white">{card.title}</span>
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: card.color }}
-                  />
-                </div>
-                <p className="metadata text-[11px] mt-1" style={{ color: card.color }}>
-                  {card.count}
-                </p>
-              </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    launchQuickCapture(card.type, {
-                      autoCamera: true,
-                      targetDate: selectedDate,
-                    })
-                  }
-                  className="w-full py-1.5 px-2.5 rounded-lg text-[12px] font-semibold cursor-pointer text-center"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.06)',
-                    color: '#EDEAE2',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                  }}
-                >
-                  {card.btn}
-                </button>
-            </div>
-          ))}
-        </div>
-
         {/* ==============================================================
-            INLINE QUICK CAPTURE STUDIO DRAWER (OPENS RIGHT HERE)
+            LOCKET-STYLE MINIMAL CAPTURE -> POST STUDIO
             ============================================================== */}
         {quickCaptureOpen && (
           <form
             onSubmit={handleSave}
-            className="mt-4 p-4 sm:p-5 rounded-xl space-y-4"
+            className="mt-4 max-w-[390px] mx-auto rounded-[32px] p-4 sm:p-5 space-y-5 shadow-2xl"
             style={{
-              backgroundColor: '#0c0e12',
-              border: '1px solid #eac16f',
+              backgroundColor: '#0B0C10',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
           >
-            <div className="flex items-center justify-between gap-2 flex-wrap border-b border-[#1f2532] pb-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="metadata text-[11px] font-bold uppercase" style={{ color: '#eac16f' }}>
-                  {t('QUICK SNAP STUDIO', 'KHUNG CHỤP & LƯU ẢNH NHANH')}
-                </span>
-                <span className="text-[#4b5563]">·</span>
-                <span className="metadata text-[11px] text-[#9ca3af]">
-                  {t('Saving to date:', 'Lưu vào ngày:')} {formatShortDate(captureDate)}
-                </span>
-              </div>
+            {/* Minimal Top Bar */}
+            <div className="flex items-center justify-between px-1">
+              <span className="metadata text-[11px] text-[#9ca3af] tabular-nums">
+                {formatShortDate(captureDate)}
+              </span>
+              <span className="text-[13px] font-semibold text-[#EDEAE2]">
+                {previewUrl ? t('Post', 'Đăng lên kho') : ''}
+              </span>
               <button
                 type="button"
                 onClick={() => {
                   stopCameraStream();
+                  setPendingFile(null);
                   setQuickCaptureOpen(false);
                 }}
-                className="text-[12px] text-[#9ca3af] hover:text-white cursor-pointer"
+                aria-label="Close camera"
+                className="w-8 h-8 rounded-full bg-white/[0.08] text-white/75 hover:text-white flex items-center justify-center text-[14px] cursor-pointer transition-colors"
               >
-                {t('Close', 'Đóng')}
+                ✕
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              {/* Left 6 Cols: Live Camera Viewfinder OR Photo Preview */}
-              <div className="lg:col-span-6 space-y-3">
-                {cameraActive ? (
-                  <div className="space-y-2.5">
-                    <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-black border border-[#262e3d]">
-                      <video
-                        ref={videoRef}
-                        playsInline
-                        muted
-                        autoPlay
-                        className={`w-full h-full object-cover ${
-                          facingMode === 'user' ? 'scale-x-[-1]' : ''
-                        }`}
-                      />
-                      <div className="absolute top-3 right-3 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startLiveCamera(facingMode === 'environment' ? 'user' : 'environment')
-                          }
-                          className="px-3 py-1 rounded-full text-[11px] font-medium cursor-pointer bg-black/75 text-white border border-white/15"
-                        >
-                          {t(
-                            `Camera: ${facingMode === 'environment' ? 'Back' : 'Front'}`,
-                            `Đổi Camera (${facingMode === 'environment' ? 'Sau' : 'Trước'})`
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={stopCameraStream}
-                          className="px-3 py-1 rounded-full text-[11px] font-medium cursor-pointer bg-black/75 text-red-400"
-                        >
-                          {t('Stop', 'Tắt Cam')}
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={capturePhotoFromVideo}
-                      className="w-full py-3 rounded-xl text-[14px] font-bold cursor-pointer"
-                      style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
-                    >
-                      {t('SNAP PHOTO NOW', 'BẤM CHỤP ẢNH NGAY')}
-                    </button>
-                  </div>
-                ) : previewUrl ? (
-                  <div className="space-y-2">
-                    <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-black/50 border border-[#262e3d]">
-                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+            {!previewUrl ? (
+              /* ----------------------------------------------------------
+                 STEP 1: LIVE VIEWFINDER + 3-BUTTON SHUTTER ROW (GALLERY / SHUTTER / FLIP)
+                 ---------------------------------------------------------- */
+              <div className="space-y-5">
+                <div className="relative aspect-square w-full rounded-[28px] overflow-hidden bg-[#151821] border border-white/10 flex items-center justify-center">
+                  {cameraActive ? (
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      muted
+                      autoPlay
+                      className={`w-full h-full object-cover ${
+                        facingMode === 'user' ? 'scale-x-[-1]' : ''
+                      }`}
+                    />
+                  ) : (
+                    <div className="p-6 text-center space-y-3">
                       <button
                         type="button"
-                        onClick={() => setPendingFile(null)}
-                        className="absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-medium bg-black/80 text-red-400 cursor-pointer"
-                      >
-                        {t('Retake / Change', 'Chụp lại / Đổi ảnh')}
-                      </button>
-                    </div>
-                    <p className="metadata text-[11px] text-emerald-400">
-                      {t('Photo ready to save to vault', 'Ảnh đã sẵn sàng lưu vào kho')} ({pendingFile?.name})
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    className="rounded-xl p-6 aspect-[4/3] flex flex-col items-center justify-center text-center gap-3 border border-dashed border-[#2b3344]"
-                    style={{ backgroundColor: '#12151C' }}
-                  >
-                    <p className="text-[14px] font-medium text-white">
-                      {t('Capture or drop a photo here', 'Mở Camera chụp trực tiếp hoặc chọn/dán ảnh (Ctrl+V)')}
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => startLiveCamera('environment')}
-                        className="px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer"
+                        onClick={() => startLiveCamera(facingMode)}
+                        className="px-5 py-2.5 rounded-full text-[13.5px] font-semibold cursor-pointer"
                         style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
                       >
-                        {t('Start Live Camera', 'Mở Camera Ngay')}
+                        {t('Open Camera', 'Mở Camera')}
                       </button>
+                      {cameraError && (
+                        <p className="text-[12px] text-[#eac16f]/90 max-w-[240px] mx-auto leading-relaxed">
+                          {cameraError}
+                        </p>
+                      )}
                     </div>
-                    {cameraError && (
-                      <p className="text-[12px] text-[#eac16f] max-w-sm">{cameraError}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Right 6 Cols: Category, Date & Save */}
-              <div className="lg:col-span-6 space-y-4">
-                <SegmentedControl
-                  value={captureType}
-                  onChange={switchCaptureType}
-                  options={[
-                    { value: 'gym', label: t('Gym', 'Tập Gym') },
-                    { value: 'swimming', label: t('Swim', 'Đi Bơi') },
-                    { value: 'drawing', label: t('Art', 'Vẽ') },
-                    { value: 'places', label: t('Places', 'Nơi thú vị') },
-                  ]}
-                />
-
-                <div>
-                  <label className="metadata text-[10.5px] uppercase text-[#9ca3af]">
-                    {t('Date in Vault', 'Ngày lưu lịch')}
-                  </label>
-                  <input
-                    type="date"
-                    value={captureDate}
-                    onChange={(e) => setCaptureDate(e.target.value)}
-                    className="w-full mt-1 px-3 py-2.5 rounded-lg text-[13.5px] bg-[#141821] border border-[#252c3b] text-white tabular-nums"
-                  />
+                  )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full py-3 rounded-xl text-[14px] font-bold cursor-pointer disabled:opacity-50"
-                  style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
-                >
-                  {saving
-                    ? t('Saving...', 'Đang lưu...')
-                    : t(
-                        `Save Photo (${formatShortDate(captureDate)})`,
-                        `Lưu Ảnh (${formatShortDate(captureDate)})`
-                      )}
-                </button>
+                {/* Locket Bottom Row: Gallery | Big Shutter Ring | Flip Camera */}
+                <div className="flex items-center justify-around pt-1 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    aria-label={t('Choose from Gallery', 'Chọn ảnh từ máy')}
+                    title={t('Choose from Gallery', 'Chọn ảnh từ máy')}
+                    className="w-12 h-12 rounded-full bg-white/[0.07] hover:bg-white/[0.14] text-white flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="3" />
+                      <circle cx="8.5" cy="10.5" r="1.5" />
+                      <path d="M21 15l-4.5-4.5L7 19" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cameraActive) {
+                        capturePhotoFromVideo();
+                      } else {
+                        startLiveCamera(facingMode);
+                      }
+                    }}
+                    aria-label={t('Snap photo', 'Chụp ảnh')}
+                    className="w-[78px] h-[78px] rounded-full p-[4px] border-[3.5px] border-[#eac16f] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                  >
+                    <span className="w-full h-full rounded-full bg-white hover:bg-[#f6f1e6] block" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startLiveCamera(facingMode === 'environment' ? 'user' : 'environment')
+                    }
+                    aria-label={t('Flip Camera', 'Đổi Camera')}
+                    title={t('Flip Camera', 'Đổi Camera')}
+                    className="w-12 h-12 rounded-full bg-white/[0.07] hover:bg-white/[0.14] text-white flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 2l3 3-3 3" />
+                      <path d="M3 11V9a4 4 0 014-4h13" />
+                      <path d="M7 22l-3-3 3-3" />
+                      <path d="M21 13v2a4 4 0 01-4 4H4" />
+                    </svg>
+                  </button>
+                </div>
+
+                {renderCategoryAndGymTags()}
               </div>
-            </div>
+            ) : (
+              /* ----------------------------------------------------------
+                 STEP 2: POST PREVIEW + ADD MESSAGE PILL + 3-BUTTON POST ROW (✕ / POST / DATE)
+                 ---------------------------------------------------------- */
+              <div className="space-y-5">
+                <div className="relative aspect-square w-full rounded-[28px] overflow-hidden bg-black border border-white/10">
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+
+                  {/* Locket "Add a message" overlay pill */}
+                  <div className="absolute inset-x-4 bottom-4 flex justify-center">
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder={t('Add a message...', 'Thêm ghi chú...')}
+                      className="max-w-[240px] w-full px-4 py-2 rounded-full bg-black/55 backdrop-blur-md text-white placeholder-white/75 text-center text-[13.5px] border border-white/15 focus:outline-none focus:border-[#eac16f]"
+                    />
+                  </div>
+                </div>
+
+                {/* Locket Post Action Row: Retake (✕) | Send / Post (Paper Plane) | Date */}
+                <div className="flex items-center justify-around pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('selection');
+                      setPendingFile(null);
+                      setTitle('');
+                      startLiveCamera(facingMode);
+                    }}
+                    aria-label={t('Retake', 'Chụp lại')}
+                    title={t('Retake', 'Chụp lại')}
+                    className="w-12 h-12 rounded-full bg-white/[0.08] hover:bg-white/[0.16] text-white text-[19px] flex items-center justify-center cursor-pointer transition-colors"
+                  >
+                    ✕
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    aria-label={t('Post photo', 'Đăng ảnh')}
+                    title={t('Post photo', 'Đăng ảnh')}
+                    className="w-[76px] h-[76px] rounded-full bg-[#eac16f] hover:bg-[#f2cc7c] text-[#0c0e12] flex items-center justify-center cursor-pointer active:scale-95 transition-all disabled:opacity-50 shadow-lg"
+                  >
+                    {saving ? (
+                      <span className="w-6 h-6 rounded-full border-2 border-[#0c0e12] border-t-transparent animate-spin" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="w-7 h-7 translate-x-[1px] -translate-y-[1px]" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 2L11 13" />
+                        <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker((v) => !v)}
+                    aria-label={t('Change date', 'Đổi ngày lưu')}
+                    title={t('Change date', 'Đổi ngày lưu')}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
+                      showDatePicker
+                        ? 'bg-[#eac16f]/20 text-[#eac16f] border border-[#eac16f]/50'
+                        : 'bg-white/[0.08] hover:bg-white/[0.16] text-white'
+                    }`}
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="16" rx="3" />
+                      <path d="M16 3v4M8 3v4M3 10h18" />
+                    </svg>
+                  </button>
+                </div>
+
+                {showDatePicker && (
+                  <div className="flex justify-center">
+                    <input
+                      type="date"
+                      value={captureDate}
+                      onChange={(e) => setCaptureDate(e.target.value)}
+                      className="px-3 py-1.5 rounded-full text-[12.5px] bg-[#161922] border border-white/15 text-white tabular-nums"
+                    />
+                  </div>
+                )}
+
+                {/* Minimal Category Selector + Gym Body/Weight Tags */}
+                {renderCategoryAndGymTags()}
+              </div>
+            )}
           </form>
         )}
       </div>
 
       {/* ================================================================
-          02. CATEGORY FILTER BAR
+          02. PHOTO CALENDAR & SELECTED DAY PHOTO VAULT
           ================================================================ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex-1">
-          <SegmentedControl
-            value={hobbyFilter}
-            onChange={setHobbyFilter}
-            options={[
-              { value: 'all', label: t('All Captures', 'Tất cả ảnh'), badge: logs.length },
-              { value: 'gym', label: t('Gym', 'Tập Gym'), badge: gymLogs.length },
-              { value: 'swimming', label: t('Swim', 'Đi Bơi'), badge: swimmingLogs.length },
-              { value: 'drawing', label: t('Art', 'Vẽ'), badge: drawingLogs.length },
-              { value: 'places', label: t('Places', 'Nơi thú vị'), badge: placesLogs.length },
-            ]}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        {/* Mobile iOS Circular Photo Calendar */}
+        <div className="md:hidden">
+          <MobileMonthCalendar
+            year={viewCursor.year}
+            month={viewCursor.month}
+            gridDays={gridDays}
+            weekdayLabels={weekdayHeaders}
+            todayStr={todayStr}
+            selectedDate={selectedDate}
+            onShiftMonth={shiftMonth}
+            onJumpToday={jumpToToday}
+            onSelectDate={(dStr) => {
+              setSelectedDate(dStr);
+              setCaptureDate(dStr);
+            }}
+            onQuickAddDate={(dStr) => {
+              setSelectedDate(dStr);
+              launchQuickCapture(captureType, { autoCamera: true, targetDate: dStr });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            getDayMeta={(dStr) => {
+              const dayLogs = logsByDate.get(dStr) || [];
+              const firstWithPhoto = dayLogs.find((l) => Boolean(l.imageMediaId || l.imageRemoteUrl));
+              return {
+                hasItems: dayLogs.length > 0,
+                itemCount: dayLogs.length,
+                hasIncompleteWarning: getGymDayStatus(dStr).isIncomplete,
+                circleContent: firstWithPhoto ? (
+                  <ResolvedImage
+                    mediaId={firstWithPhoto.imageMediaId || ''}
+                    remoteUrl={firstWithPhoto.imageRemoteUrl}
+                    alt={firstWithPhoto.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : undefined,
+              };
+            }}
+            onFabClick={() => {
+              launchQuickCapture(captureType, {
+                autoCamera: true,
+                targetDate: selectedDate || todayStr,
+              });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            fabAriaLabel={t('Capture photo', 'Chụp ảnh mới')}
           />
         </div>
 
-        {unsyncedLogs.length > 0 && (
-          <button
-            type="button"
-            disabled={syncingAll}
-            onClick={handleSyncAllToCloudinary}
-            className="px-3.5 py-1.5 rounded-xl metadata text-[11px] cursor-pointer shrink-0"
-            style={{
-              backgroundColor: 'rgba(185, 155, 121, 0.14)',
-              color: 'var(--os-brass)',
-              border: '1px solid rgba(185, 155, 121, 0.3)',
-            }}
-          >
-            {syncingAll
-              ? t('Syncing...', 'Đang đồng bộ...')
-              : t(`Sync ${unsyncedLogs.length} to Cloudinary`, `Đồng bộ ${unsyncedLogs.length} ảnh lên Cloud`)}
-          </button>
-        )}
-      </div>
-
-      {/* ================================================================
-          03. PHOTO CALENDAR & SELECTED DAY PHOTO VAULT
-          ================================================================ */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Left 7 Cols: Interactive Monthly Photo Calendar */}
+        {/* Left 7 Cols: Desktop Interactive Monthly Photo Calendar */}
         <div
-          className="xl:col-span-7 rounded-2xl overflow-hidden"
+          className="hidden md:block xl:col-span-7 rounded-2xl overflow-hidden"
           style={{ backgroundColor: '#11141B', border: '1px solid #222834' }}
         >
           {/* Calendar Header */}
@@ -1118,18 +1119,26 @@ export function HobbiesJournal() {
                       {cell.dayNum}
                     </span>
 
-                    {dayLogs.length > 0 && (
-                      <span
-                        className="metadata text-[9.5px] px-1.5 py-0.5 rounded-full font-bold"
-                        style={{
-                          backgroundColor: 'rgba(12, 14, 18, 0.82)',
-                          color: '#eac16f',
-                          border: '1px solid rgba(234, 193, 111, 0.35)',
-                        }}
-                      >
-                        {dayLogs.length}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {getGymDayStatus(cell.dateStr).isIncomplete && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-500/30"
+                          title={t('Missing 2nd Gym photo (Body + Weight)', 'Thiếu 1 trong 2 ảnh Gym (Body + Weight)')}
+                        />
+                      )}
+                      {dayLogs.length > 0 && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium tabular-nums"
+                          style={{
+                            backgroundColor: 'rgba(12, 14, 18, 0.82)',
+                            color: '#eac16f',
+                            border: '1px solid rgba(234, 193, 111, 0.35)',
+                          }}
+                        >
+                          {dayLogs.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Bottom Category Dots & Latest Title */}
@@ -1162,12 +1171,12 @@ export function HobbiesJournal() {
         >
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#1f2532]">
             <div>
-              <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: '#eac16f' }}>
+              <span className="text-[11px] font-medium" style={{ color: '#eac16f' }}>
                 {selectedDate === todayStr
-                  ? t('TODAY’S PHOTO VAULT', 'KHO ẢNH HÔM NAY')
-                  : t('DATE PHOTO VAULT', 'KHO ẢNH THEO NGÀY')}
+                  ? t('Today’s Photo Vault', 'Kho ảnh hôm nay')
+                  : t('Date Photo Vault', 'Kho ảnh theo ngày')}
               </span>
-              <h3 className="font-editorial text-[20px] capitalize text-white mt-0.5">
+              <h3 className="text-[17px] font-semibold capitalize text-white mt-0.5">
                 {formatFullDateLabel(selectedDate)}
               </h3>
               <p className="metadata text-[11px] text-[#9ca3af] mt-0.5">
@@ -1176,6 +1185,14 @@ export function HobbiesJournal() {
                   `${selectedDateLogs.length} ảnh / khoảnh khắc được lưu trong ngày này`
                 )}
               </p>
+              {getGymDayStatus(selectedDate).isIncomplete && (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/15 text-red-400 border border-red-500/35">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  {!getGymDayStatus(selectedDate).hasBody
+                    ? t('Gym incomplete: Missing Body photo', 'Gym chưa đủ 2 ảnh: Còn thiếu ảnh Body')
+                    : t('Gym incomplete: Missing Weight photo', 'Gym chưa đủ 2 ảnh: Còn thiếu ảnh Weight')}
+                </p>
+              )}
             </div>
 
             <button
@@ -1186,36 +1203,22 @@ export function HobbiesJournal() {
                   targetDate: selectedDate,
                 })
               }
-              className="px-3 py-1.5 rounded-xl text-[12px] font-semibold cursor-pointer shrink-0"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer shrink-0 transition-transform hover:scale-[1.02]"
               style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
             >
-              {t('+ Snap for Day', '+ Chụp cho ngày này')}
+              <span>+</span>
+              <span>{t('Snap', 'Chụp')}</span>
             </button>
           </div>
 
           {selectedDateLogs.length === 0 ? (
-            <div className="py-10 px-4 text-center rounded-xl border border-dashed border-[#242a38] space-y-3">
+            <div className="py-10 px-4 text-center rounded-xl border border-dashed border-[#242a38]">
               <p className="text-[14px] text-[#9ca3af]">
                 {t(
                   'No photos saved on this date yet.',
                   'Ngày này chưa có bức ảnh nào trong kho.'
                 )}
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    launchQuickCapture('gym', {
-                      autoCamera: true,
-                      targetDate: selectedDate,
-                    })
-                  }
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-semibold cursor-pointer"
-                  style={{ backgroundColor: '#eac16f', color: '#0c0e12' }}
-                >
-                  {t('Snap Camera', 'Mở Camera chụp')}
-                </button>
-              </div>
             </div>
           ) : (
             <div className="space-y-3.5 max-h-[560px] overflow-y-auto pr-1">
@@ -1234,11 +1237,16 @@ export function HobbiesJournal() {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
-                            className="metadata text-[10px] px-2 py-0.5 rounded-full font-bold"
+                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                             style={{ backgroundColor: meta.bg, color: meta.color }}
                           >
                             {meta.label}
                           </span>
+                          {log.type === 'gym' && log.gymPhotoKind && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/[0.08] text-[#EDEAE2]">
+                              {log.gymPhotoKind === 'body' ? 'Body' : 'Weight'}
+                            </span>
+                          )}
                           {isCloudinary && log.imageRemoteUrl && (
                             <button
                               type="button"
@@ -1268,21 +1276,25 @@ export function HobbiesJournal() {
                           )}
                         </div>
                         <p className="font-editorial text-[18px] text-white mt-1">{log.title}</p>
-                        <p className="text-[11.5px] text-[#9ca3af]">
-                          {log.locationName ? `${log.locationName} · ` : ''}
-                          {log.gymSplit ? `${log.gymSplit} · ` : ''}
-                          {log.distanceMeters ? `${log.distanceMeters}m · ` : ''}
-                          {log.stroke ? `${log.stroke} · ` : ''}
-                          {log.durationMinutes} {t('min', 'phút')}
-                        </p>
+                        {(log.locationName || log.distanceMeters || log.stroke) && (
+                          <p className="text-[11.5px] text-[#9ca3af]">
+                            {[
+                              log.locationName,
+                              log.distanceMeters ? `${log.distanceMeters}m` : '',
+                              log.stroke,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleDelete(log)}
-                        className="text-[11.5px] text-[#6b7280] hover:text-red-400 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 cursor-pointer shrink-0"
                       >
-                        {t('Delete', 'Xóa')}
+                        {t('Delete', 'Xóa ảnh')}
                       </button>
                     </div>
 
@@ -1309,233 +1321,6 @@ export function HobbiesJournal() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* ================================================================
-          04. CHRONOLOGICAL PHOTO VAULT BY DATE (KHO LƯU ẢNH THEO TỪNG NGÀY)
-          ================================================================ */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: '#eac16f' }}>
-              {t('CHRONOLOGICAL PHOTO VAULT', 'KHO LƯU TRỮ ẢNH THEO NGÀY')}
-            </span>
-            <h3 className="font-editorial text-[22px] text-white">
-              {t(
-                `All Captured Days (${sortedDateGroups.length} days · ${filteredLogs.length} entries)`,
-                `Toàn bộ Kho Ảnh (${sortedDateGroups.length} ngày · ${filteredLogs.length} khoảnh khắc)`
-              )}
-            </h3>
-          </div>
-
-          <div
-            className="flex items-center p-1 rounded-xl"
-            style={{ backgroundColor: '#12151C', border: '1px solid #222834' }}
-          >
-            <button
-              type="button"
-              onClick={() => setVaultView('by_date')}
-              className="px-3 py-1 rounded-lg text-[12px] font-medium cursor-pointer"
-              style={{
-                backgroundColor: vaultView === 'by_date' ? '#1e2430' : 'transparent',
-                color: vaultView === 'by_date' ? '#ffffff' : '#9ca3af',
-              }}
-            >
-              {t('Grouped by Date', 'Xếp theo từng ngày')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setVaultView('gallery')}
-              className="px-3 py-1 rounded-lg text-[12px] font-medium cursor-pointer"
-              style={{
-                backgroundColor: vaultView === 'gallery' ? '#1e2430' : 'transparent',
-                color: vaultView === 'gallery' ? '#ffffff' : '#9ca3af',
-              }}
-            >
-              {t('Photo Wall', 'Tường ảnh')}
-            </button>
-          </div>
-        </div>
-
-        {filteredLogs.length === 0 ? (
-          <EmptyState
-            title={t('Your Photo Vault is empty', 'Kho ảnh của bạn đang trống')}
-            subtitle={t(
-              'Use Quick Snap at the top to capture your Gym workouts, Swimming sessions, Sketches, and Interesting Places.',
-              'Bấm nút Chụp Ảnh Nhanh ở phía trên để lưu hình tập Gym, đi bơi, vẽ tranh và những nơi thú vị bạn ghé qua.'
-            )}
-          />
-        ) : vaultView === 'gallery' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredLogs.map((log) => {
-              const meta = getTypeMeta(log.type);
-              const hasPhoto = Boolean(log.imageMediaId || log.imageRemoteUrl);
-              return (
-                <div
-                  key={log.id}
-                  className="rounded-xl overflow-hidden flex flex-col justify-between"
-                  style={{ backgroundColor: '#12151C', border: '1px solid #222834' }}
-                >
-                  {hasPhoto ? (
-                    <div
-                      onClick={() => setLightboxLog(log)}
-                      className="aspect-[4/3] bg-black/40 overflow-hidden cursor-zoom-in relative group"
-                    >
-                      <ResolvedImage
-                        mediaId={log.imageMediaId || ''}
-                        remoteUrl={log.imageRemoteUrl}
-                        alt={log.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                      />
-                      <span
-                        className="absolute top-2.5 left-2.5 metadata text-[10px] px-2.5 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: 'rgba(12, 14, 18, 0.82)',
-                          color: meta.color,
-                        }}
-                      >
-                        {meta.label} · {formatShortDate(log.date)}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="p-3.5 pb-0">
-                      <span className="metadata text-[10px]" style={{ color: meta.color }}>
-                        {meta.label} · {formatShortDate(log.date)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="p-3.5 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-editorial text-[16px] text-white truncate">{log.title}</p>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(log)}
-                        className="text-[11px] text-[#6b7280] hover:text-red-400 cursor-pointer shrink-0"
-                      >
-                        {t('Del', 'Xóa')}
-                      </button>
-                    </div>
-                    <p className="text-[11.5px] text-[#9ca3af] truncate">
-                      {log.locationName || log.gymSplit || (log.distanceMeters ? `${log.distanceMeters}m` : `${log.durationMinutes}m`)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {sortedDateGroups.map(([dateStr, dayList]) => (
-              <Card key={dateStr} className="space-y-3.5">
-                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[var(--os-border)] flex-wrap">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className="metadata text-[11px] px-2.5 py-1 rounded-lg font-bold"
-                      style={{
-                        backgroundColor: 'rgba(234, 193, 111, 0.14)',
-                        color: '#eac16f',
-                      }}
-                    >
-                      {formatShortDate(dateStr)}
-                    </span>
-                    <h4 className="font-editorial text-[18px] capitalize text-white">
-                      {formatFullDateLabel(dateStr)}
-                    </h4>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="metadata text-[11px] text-[#9ca3af]">
-                      {dayList.length} {t('captures', 'ảnh')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(dateStr);
-                        launchQuickCapture(captureType, {
-                          autoCamera: true,
-                          targetDate: dateStr,
-                        });
-                      }}
-                      className="text-[12px] font-medium cursor-pointer"
-                      style={{ color: '#eac16f' }}
-                    >
-                      {t('+ Add to this date', '+ Thêm ảnh vào ngày này')}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {dayList.map((log) => {
-                    const meta = getTypeMeta(log.type);
-                    const hasPhoto = Boolean(log.imageMediaId || log.imageRemoteUrl);
-                    return (
-                      <div
-                        key={log.id}
-                        className="rounded-xl overflow-hidden flex flex-col justify-between"
-                        style={{ backgroundColor: '#0e1117', border: '1px solid #222834' }}
-                      >
-                        {hasPhoto && (
-                          <div
-                            onClick={() => setLightboxLog(log)}
-                            className="aspect-[16/10] bg-black/40 overflow-hidden cursor-zoom-in relative group"
-                          >
-                            <ResolvedImage
-                              mediaId={log.imageMediaId || ''}
-                              remoteUrl={log.imageRemoteUrl}
-                              alt={log.title}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                            />
-                            <span
-                              className="absolute top-2.5 left-2.5 metadata text-[10px] px-2.5 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: 'rgba(12, 14, 18, 0.82)',
-                                color: meta.color,
-                              }}
-                            >
-                              {meta.label}
-                            </span>
-                          </div>
-                        )}
-                        <div className="p-3.5 space-y-1.5">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              {!hasPhoto && (
-                                <span className="metadata text-[10px]" style={{ color: meta.color }}>
-                                  {meta.label}
-                                </span>
-                              )}
-                              <p className="font-editorial text-[17px] text-white leading-snug">
-                                {log.title}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(log)}
-                              className="text-[11.5px] text-[#6b7280] hover:text-red-400 cursor-pointer shrink-0"
-                            >
-                              {t('Delete', 'Xóa')}
-                            </button>
-                          </div>
-
-                          <p className="text-[12px] text-[#9ca3af]">
-                            {log.locationName ? `${log.locationName} · ` : ''}
-                            {log.gymSplit ? `${log.gymSplit} · ` : ''}
-                            {log.distanceMeters ? `${log.distanceMeters}m · ` : ''}
-                            {log.stroke ? `${log.stroke} · ` : ''}
-                            {log.durationMinutes} {t('min', 'phút')}
-                          </p>
-                          {log.details && (
-                            <p className="text-[12.5px] text-[#cbd5e1] line-clamp-2">{log.details}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ================================================================

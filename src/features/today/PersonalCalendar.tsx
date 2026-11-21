@@ -7,7 +7,8 @@ import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
 import type { TaskCategory, TaskItem, WorkspaceId } from '../../types';
-import { useToast } from '../../components/ui/Primitives';
+import { BackButton, useToast } from '../../components/ui/Primitives';
+import { MobileMonthCalendar } from '../../components/MobileMonthCalendar';
 
 interface CalendarItem {
   id: string;
@@ -212,7 +213,6 @@ export function PersonalCalendar({
   }, [itemsByDate, monthPrefix]);
 
   const selectedItems = itemsByDate.get(selectedDate) || [];
-  const activeDayTasksCount = selectedItems.filter((i) => !i.done).length;
 
   // Upcoming Publishing & Research Schedule (from publishing tasks + any user lectures/psych posts)
   const upcomingPublishing = useMemo(() => {
@@ -460,7 +460,7 @@ export function PersonalCalendar({
           <button
             type="button"
             onClick={() => setSubMode('calendar')}
-            className="px-3.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-2 transition cursor-pointer bg-[#181a20] border border-[#c6a052]/40 text-[#fae3b4] shadow-[0_0_12px_-2px_rgba(198,160,82,0.2)]"
+            className="hidden md:flex px-3.5 py-1 rounded-md text-xs font-semibold items-center space-x-2 transition cursor-pointer bg-[#181a20] border border-[#c6a052]/40 text-[#fae3b4] shadow-[0_0_12px_-2px_rgba(198,160,82,0.2)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#e5c07b]" />
             <span>{t('Calendar · Schedule', 'Lịch · Kế hoạch')}</span>
@@ -468,8 +468,8 @@ export function PersonalCalendar({
         </div>
 
         {/* System Controls & Today Focus */}
-        <div className="flex items-center space-x-3">
-          <div className="hidden sm:flex items-center space-x-2.5 text-[11px] font-mono text-[#8b95a7] bg-[#12151d] px-2.5 py-1 rounded-md border border-[#1e232e]">
+        <div className="flex items-center space-x-3 ml-auto">
+          <div className="hidden sm:flex items-center space-x-2.5 text-[11px] tabular-nums text-[#8b95a7] bg-[#12151d] px-2.5 py-1 rounded-md border border-[#1e232e]">
             <span>
               {t('PLANNED', 'DỰ KIẾN')}:{' '}
               <strong className="text-white font-semibold">{monthStats.planned}</strong>
@@ -493,9 +493,9 @@ export function PersonalCalendar({
       {/* ================================================================
           CORE CONTENT AREA: MONTHLY GRID + SELECTED DAY DOCKET
           ================================================================ */}
-      <div className="px-5 py-3.5 space-y-3.5">
-        {/* Calendar Header Bar with Month Control */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+      <div className="px-3 sm:px-5 py-3.5 space-y-3.5">
+        {/* Calendar Header Bar with Month Control (Desktop) */}
+        <div className="hidden md:flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div className="flex items-center space-x-3.5">
             <div className="flex items-center bg-[#13161e] border border-[#222734] rounded-md p-0.5">
               <button
@@ -511,7 +511,7 @@ export function PersonalCalendar({
               <button
                 type="button"
                 onClick={jumpToToday}
-                className="px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-[#e5c07b] hover:bg-[#1e2330] rounded font-semibold transition cursor-pointer"
+                className="px-2.5 py-0.5 tabular-nums text-[11px] uppercase tracking-wider text-[#e5c07b] hover:bg-[#1e2330] rounded font-semibold transition cursor-pointer"
               >
                 {t('TODAY', 'HÔM NAY')}
               </button>
@@ -526,7 +526,7 @@ export function PersonalCalendar({
                 </svg>
               </button>
             </div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white font-sans capitalize">
+            <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-white capitalize">
               {monthHeading}
             </h1>
           </div>
@@ -535,17 +535,11 @@ export function PersonalCalendar({
         {/* TIMELINE ORBIT MODE */}
         {subMode === 'timeline' ? (
           <section className="bg-[#101217] border border-[#1f242e] rounded-lg p-4 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between border-b border-[#1c212d] pb-2.5">
-              <span className="text-[11px] font-mono uppercase tracking-[0.2em] font-bold text-[#e5c07b]">
-                {t('TIMELINE ORBIT · ALL SCHEDULED DAYS', 'QUỸ ĐẠO THỜI GIAN · TẤT CẢ NGÀY CÓ LỊCH')}
+            <div className="flex items-center gap-2.5 border-b border-[#1c212d] pb-2.5">
+              <BackButton onClick={() => setSubMode('calendar')} />
+              <span className="text-[12px] font-medium text-[#e5c07b]">
+                {t('Timeline · All scheduled days', 'Quỹ đạo thời gian · Tất cả ngày có lịch')}
               </span>
-              <button
-                type="button"
-                onClick={() => setSubMode('calendar')}
-                className="text-[11px] font-mono text-[#9ca3af] hover:text-white cursor-pointer"
-              >
-                {t('← Back to Monthly Grid', '← Về lưới lịch tháng')}
-              </button>
             </div>
 
             {timelineDateGroups.length === 0 ? (
@@ -572,7 +566,7 @@ export function PersonalCalendar({
                     className="p-3 rounded-md bg-[#141720] border border-[#202532] space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-[#e5c07b]">
+                      <span className="tabular-nums text-xs font-bold text-[#e5c07b]">
                         {formatShortDate(dStr)} {dStr === todayStr ? '· TODAY' : ''}
                       </span>
                       <button
@@ -581,7 +575,7 @@ export function PersonalCalendar({
                           setSelectedDate(dStr);
                           setSubMode('calendar');
                         }}
-                        className="text-[10.5px] font-mono text-[#8b95a7] hover:text-white cursor-pointer"
+                        className="text-[10.5px] tabular-nums text-[#8b95a7] hover:text-white cursor-pointer"
                       >
                         {t('Focus Day →', 'Xem ngày này →')}
                       </button>
@@ -599,7 +593,7 @@ export function PersonalCalendar({
                           <button
                             type="button"
                             onClick={() => handleDeleteCalendarItem(ev)}
-                            className="text-[10px] font-mono text-[#525a6c] hover:text-rose-400 cursor-pointer"
+                            className="text-[10px] tabular-nums text-[#525a6c] hover:text-rose-400 cursor-pointer"
                           >
                             Del
                           </button>
@@ -614,13 +608,43 @@ export function PersonalCalendar({
         ) : (
           /* SPLIT GRID: 2 COLUMNS (MONTHLY CALENDAR & SELECTED DAY DOCKET) */
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-start">
-            {/* BEGIN: MonthlyCalendarGrid */}
+            {/* Mobile iOS Circular Month Grid with Watermark */}
+            <div className="md:hidden">
+              <MobileMonthCalendar
+                year={viewCursor.year}
+                month={viewCursor.month}
+                gridDays={gridDays}
+                weekdayLabels={weekdayHeaders}
+                todayStr={todayStr}
+                selectedDate={selectedDate}
+                onShiftMonth={shiftMonth}
+                onJumpToday={jumpToToday}
+                onSelectDate={(dStr) => setSelectedDate(dStr)}
+                onQuickAddDate={(dStr) => {
+                  setSelectedDate(dStr);
+                  setComposerOpen(true);
+                }}
+                getDayMeta={(dStr) => {
+                  const list = itemsByDate.get(dStr) || [];
+                  const allDone = list.length > 0 && list.every((ev) => ev.done);
+                  return {
+                    hasItems: list.length > 0,
+                    itemCount: list.length,
+                    allDone,
+                  };
+                }}
+                onFabClick={() => setComposerOpen((o) => !o)}
+                fabAriaLabel={t('Add event', 'Thêm lịch mới')}
+              />
+            </div>
+
+            {/* BEGIN: Desktop MonthlyCalendarGrid */}
             <section
-              className="xl:col-span-8 bg-[#101217] border border-[#1f242e] rounded-lg overflow-hidden shadow-2xl"
+              className="hidden md:block xl:col-span-8 bg-[#101217] border border-[#1f242e] rounded-lg overflow-hidden shadow-2xl"
               data-purpose="monthly-calendar"
             >
               {/* Day Names Row (MON - SUN) */}
-              <div className="grid grid-cols-7 border-b border-[#1d222c] bg-[#141720]/80 text-[10px] font-mono tracking-widest text-[#858fa2] uppercase py-1.5 text-center">
+              <div className="grid grid-cols-7 border-b border-[#1d222c] bg-[#141720]/80 text-[10px] tabular-nums tracking-widest text-[#858fa2] uppercase py-1.5 text-center">
                 {weekdayHeaders.map((wd) => (
                   <div key={wd}>{wd}</div>
                 ))}
@@ -644,7 +668,7 @@ export function PersonalCalendar({
                         }}
                         className="min-h-[58px] p-1.5 bg-[#0c0e12] text-[#424856] flex flex-col justify-between text-left cursor-pointer hover:bg-[#101319]"
                       >
-                        <span className="font-mono text-[11px]">{cell.dayNum}</span>
+                        <span className="tabular-nums text-[11px]">{cell.dayNum}</span>
                       </button>
                     );
                   }
@@ -658,37 +682,45 @@ export function PersonalCalendar({
                         className="min-h-[58px] p-1.5 bg-[#181a17] border-2 border-[#c6a052]/80 shadow-[inset_0_0_12px_rgba(198,160,82,0.15)] flex flex-col justify-between relative z-10 rounded-[2px] text-left cursor-pointer"
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className="font-mono text-[10px] font-bold w-4 h-4 rounded-full bg-[#c6a052] text-black flex items-center justify-center shadow-[0_0_6px_#c6a052]">
+                          <span className="tabular-nums text-[10px] font-bold w-4 h-4 rounded-full bg-[#c6a052] text-black flex items-center justify-center shadow-[0_0_6px_#c6a052]">
                             {cell.dayNum}
                           </span>
-                          <span className="text-[9px] font-mono tracking-wider text-[#e5c07b] uppercase font-semibold">
+                          <span className="hidden sm:inline text-[9px] tabular-nums tracking-wider text-[#e5c07b] uppercase font-semibold">
                             {isToday ? t('TODAY', 'HÔM NAY') : t('FOCUS', 'CHỌN')}
                           </span>
                         </div>
 
-                        {/* Events Preview on Calendar Cell (Compact) */}
+                        {/* Events Preview on Calendar Cell (Dots on Mobile, Pills on Desktop) */}
                         {dayItems.length > 0 && (
-                          <div className="space-y-0.5 my-0.5 w-full">
-                            {dayItems.slice(0, 2).map((ev) => {
-                              const st = getCellPillStyles(ev);
-                              return (
-                                <div
-                                  key={ev.id}
-                                  className={`flex items-center space-x-1 text-[9px] px-1 py-0.5 rounded truncate ${st.pill}`}
-                                >
-                                  <span className={`w-1 h-1 rounded-full shrink-0 ${st.dot}`} />
-                                  <span className={`truncate ${ev.done ? 'line-through opacity-55' : ''}`}>
-                                    {ev.time ? `${ev.time} ` : ''}
-                                    {ev.title}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <>
+                            <div className="flex sm:hidden items-center gap-0.5 flex-wrap my-0.5">
+                              {dayItems.slice(0, 3).map((ev) => {
+                                const st = getCellPillStyles(ev);
+                                return <span key={ev.id} className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />;
+                              })}
+                            </div>
+                            <div className="hidden sm:block space-y-0.5 my-0.5 w-full">
+                              {dayItems.slice(0, 2).map((ev) => {
+                                const st = getCellPillStyles(ev);
+                                return (
+                                  <div
+                                    key={ev.id}
+                                    className={`flex items-center space-x-1 text-[9px] px-1 py-0.5 rounded truncate ${st.pill}`}
+                                  >
+                                    <span className={`w-1 h-1 rounded-full shrink-0 ${st.dot}`} />
+                                    <span className={`truncate ${ev.done ? 'line-through opacity-55' : ''}`}>
+                                      {ev.time ? `${ev.time} ` : ''}
+                                      {ev.title}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
                         )}
 
                         {dayItems.length > 2 ? (
-                          <div className="text-[9px] font-mono text-[#e5c07b] font-medium tracking-tight truncate">
+                          <div className="hidden sm:block text-[9px] tabular-nums text-[#e5c07b] font-medium tracking-tight truncate">
                             +{dayItems.length - 2} {t('more items', 'mục nữa')}
                           </div>
                         ) : (
@@ -710,37 +742,45 @@ export function PersonalCalendar({
                     >
                       <div className="flex items-center justify-between w-full">
                         <span
-                          className={`font-mono text-[11px] font-medium group-hover:text-[#e5c07b] ${
+                          className={`tabular-nums text-[11px] font-medium group-hover:text-[#e5c07b] ${
                             isToday ? 'text-[#e5c07b] font-bold underline' : 'text-[#a2abbc]'
                           }`}
                         >
                           {cell.dayNum}
                         </span>
                         {dayItems.length > 1 && (
-                          <span className="text-[9px] font-mono text-[#757f95]">
+                          <span className="text-[9px] tabular-nums text-[#757f95]">
                             +{dayItems.length - 1}
                           </span>
                         )}
                       </div>
 
                       {dayItems.length > 0 && (
-                        <div className="space-y-0.5 my-0.5 w-full">
-                          {dayItems.slice(0, 1).map((ev) => {
-                            const st = getCellPillStyles(ev);
-                            return (
-                              <div
-                                key={ev.id}
-                                className={`flex items-center space-x-1 text-[9px] px-1 py-0.5 rounded truncate ${st.pill}`}
-                              >
-                                <span className={`w-1 h-1 rounded-full shrink-0 ${st.dot}`} />
-                                <span className={`truncate ${ev.done ? 'line-through opacity-55' : ''}`}>
-                                  {ev.time ? `${ev.time} ` : ''}
-                                  {ev.title}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <>
+                          <div className="flex sm:hidden items-center gap-0.5 flex-wrap my-0.5">
+                            {dayItems.slice(0, 3).map((ev) => {
+                              const st = getCellPillStyles(ev);
+                              return <span key={ev.id} className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />;
+                            })}
+                          </div>
+                          <div className="hidden sm:block space-y-0.5 my-0.5 w-full">
+                            {dayItems.slice(0, 1).map((ev) => {
+                              const st = getCellPillStyles(ev);
+                              return (
+                                <div
+                                  key={ev.id}
+                                  className={`flex items-center space-x-1 text-[9px] px-1 py-0.5 rounded truncate ${st.pill}`}
+                                >
+                                  <span className={`w-1 h-1 rounded-full shrink-0 ${st.dot}`} />
+                                  <span className={`truncate ${ev.done ? 'line-through opacity-55' : ''}`}>
+                                    {ev.time ? `${ev.time} ` : ''}
+                                    {ev.title}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
                       )}
                       <div />
                     </button>
@@ -756,20 +796,10 @@ export function PersonalCalendar({
               data-purpose="selected-day-details"
             >
               {/* Docket Header */}
-              <div className="flex items-start justify-between border-b border-[#1c212d] pb-2.5 mb-2.5">
-                <div>
-                  <span className="text-[9px] font-mono tracking-[0.2em] uppercase text-[#e5c07b] font-semibold flex items-center space-x-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#e5c07b]" />
-                    <span>
-                      {selectedDate === todayStr
-                        ? t('TODAY · SELECTED DAY', 'HÔM NAY · NGÀY ĐANG CHỌN')
-                        : t('SELECTED DAY · ORBIT', 'LỊCH NGÀY ĐANG CHỌN')}
-                    </span>
-                  </span>
-                  <h2 className="text-lg font-bold text-white tracking-tight mt-0.5 font-sans capitalize">
-                    {selectedFullLabel}
-                  </h2>
-                </div>
+              <div className="flex items-center justify-between border-b border-[#1c212d] pb-2.5 mb-2.5">
+                <h2 className="text-[17px] font-semibold text-white tracking-[-0.015em] capitalize">
+                  {selectedFullLabel}
+                </h2>
                 <button
                   type="button"
                   onClick={() => setComposerOpen((o) => !o)}
@@ -799,7 +829,7 @@ export function PersonalCalendar({
                       type="time"
                       value={newTime}
                       onChange={(e) => setNewTime(e.target.value)}
-                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] font-mono"
+                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] tabular-nums"
                     />
                     <input
                       type="number"
@@ -807,12 +837,12 @@ export function PersonalCalendar({
                       value={newDuration}
                       onChange={(e) => setNewDuration(e.target.value)}
                       placeholder="45m"
-                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] font-mono"
+                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] tabular-nums"
                     />
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value as TaskCategory)}
-                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] font-mono"
+                      className="px-2 py-1 rounded text-[11px] bg-[#0c0e12] border border-[#262a36] text-[#e6e8ec] tabular-nums"
                     >
                       <option value="health">health</option>
                       <option value="learning">learning</option>
@@ -832,7 +862,7 @@ export function PersonalCalendar({
                         {t('Pin to Today Focus', 'Ghim vào hôm nay')}
                       </label>
                     ) : (
-                      <span className="text-[10px] font-mono text-[#757f95]">
+                      <span className="text-[10px] tabular-nums text-[#757f95]">
                         {formatShortDate(selectedDate)}
                       </span>
                     )}
@@ -846,14 +876,6 @@ export function PersonalCalendar({
                 </form>
               )}
 
-              {/* Focus Daily Log Section Title */}
-              <div className="flex items-center justify-between mb-2 text-[10px] font-mono tracking-wider text-[#7e889a] uppercase">
-                <span>{t('DAILY LOG SNAPSHOT', 'LỊCH TRÌNH TRONG NGÀY')}</span>
-                <span className="text-[#e5c07b] font-medium">
-                  {activeDayTasksCount} {t('TASKS ACTIVE', 'MỤC ĐANG CHỜ')}
-                </span>
-              </div>
-
               {/* Task & Event List (Compact laptop viewport) */}
               <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[295px] pr-1 custom-scrollbar">
                 {selectedItems.length === 0 ? (
@@ -864,7 +886,7 @@ export function PersonalCalendar({
                     <button
                       type="button"
                       onClick={() => setComposerOpen(true)}
-                      className="text-[11px] font-mono text-[#e5c07b] hover:underline cursor-pointer"
+                      className="text-[11px] tabular-nums text-[#e5c07b] hover:underline cursor-pointer"
                     >
                       {t('+ Add Event to This Day', '+ Thêm lịch cho ngày này')}
                     </button>
@@ -885,7 +907,7 @@ export function PersonalCalendar({
                                 <h4 className="text-xs font-bold text-[#fae3b4] leading-tight">
                                   {ev.title}
                                 </h4>
-                                <div className="flex items-center space-x-2 text-[10px] text-[#8e98ac] mt-1 font-mono">
+                                <div className="flex items-center space-x-2 text-[10px] text-[#8e98ac] mt-1 tabular-nums">
                                   <span className="text-[#e5c07b] font-medium">{ev.metaCategory}</span>
                                   <span>•</span>
                                   <span className="text-[#a4adbf]">{ev.metaSub}</span>
@@ -897,7 +919,7 @@ export function PersonalCalendar({
                                 <button
                                   type="button"
                                   onClick={() => onNavigate(ev.jumpTo!.ws, ev.jumpTo!.sub)}
-                                  className="text-[11px] font-mono font-medium text-[#e5c07b] hover:text-white flex items-center space-x-1 shrink-0 px-1.5 py-0.5 rounded bg-[#20221e] border border-[#c6a052]/20 transition cursor-pointer"
+                                  className="text-[11px] tabular-nums font-medium text-[#e5c07b] hover:text-white flex items-center space-x-1 shrink-0 px-1.5 py-0.5 rounded bg-[#20221e] border border-[#c6a052]/20 transition cursor-pointer"
                                 >
                                   <span>Open ↗</span>
                                 </button>
@@ -905,7 +927,7 @@ export function PersonalCalendar({
                               <button
                                 type="button"
                                 onClick={() => handleDeleteCalendarItem(ev)}
-                                className="text-[10px] text-[#525a6c] hover:text-rose-400 font-mono transition cursor-pointer"
+                                className="text-[10px] text-[#525a6c] hover:text-rose-400 tabular-nums transition cursor-pointer"
                                 title="Delete"
                               >
                                 Del
@@ -949,7 +971,7 @@ export function PersonalCalendar({
                                 {ev.time ? `${ev.time} · ` : ''}
                                 {ev.title}
                               </h4>
-                              <div className="flex items-center space-x-1.5 text-[10px] text-[#788295] mt-0.5 font-mono">
+                              <div className="flex items-center space-x-1.5 text-[10px] text-[#788295] mt-0.5 tabular-nums">
                                 <span className={`${getCategoryTextColor(ev.category)} font-medium`}>
                                   {ev.metaCategory}
                                 </span>
@@ -961,7 +983,7 @@ export function PersonalCalendar({
                           <button
                             type="button"
                             onClick={() => handleDeleteCalendarItem(ev)}
-                            className="text-[10px] text-[#525a6c] hover:text-rose-400 font-mono transition shrink-0 cursor-pointer"
+                            className="text-[10px] text-[#525a6c] hover:text-rose-400 tabular-nums transition shrink-0 cursor-pointer"
                             title="Delete Task"
                           >
                             Del
@@ -987,10 +1009,10 @@ export function PersonalCalendar({
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center space-x-2">
                 <span className="inline-block w-1.5 h-1.5 bg-[#c6a052] rounded-sm" />
-                <h3 className="text-[11px] font-mono uppercase tracking-[0.2em] font-bold text-[#e5c07b]">
+                <h3 className="text-[11px] font-medium text-[#e5c07b]">
                   {t(
-                    `UPCOMING PUBLISHING & RESEARCH SCHEDULE (${upcomingPublishing.length})`,
-                    `LỊCH XUẤT BẢN & NGHIÊN CỨU SẮP TỚI (${upcomingPublishing.length})`
+                    `Upcoming publishing & research (${upcomingPublishing.length})`,
+                    `Lịch xuất bản & nghiên cứu sắp tới (${upcomingPublishing.length})`
                   )}
                 </h3>
               </div>
@@ -1006,7 +1028,7 @@ export function PersonalCalendar({
                       isLastOdd && upcomingPublishing.length > 1 ? 'md:col-span-2' : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                    <div className="flex items-center justify-between text-[10px] tabular-nums mb-1">
                       <span className="text-[#757f95] font-medium">
                         {item.channel} <span className="text-[#414859]">·</span>{' '}
                         {formatShortDate(item.date).slice(0, 5)}
@@ -1018,7 +1040,7 @@ export function PersonalCalendar({
                           </span>
                         ) : (
                           <span
-                            className={`text-[10px] font-mono font-medium ${
+                            className={`text-[10px] tabular-nums font-medium ${
                               item.daysLeft < 0
                                 ? 'text-rose-400'
                                 : item.daysLeft <= 3

@@ -1,7 +1,256 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { triggerHaptic } from '../../lib/haptics';
+import { useLanguage } from '../../lib/i18n';
 import { SFXMark, SFChevronRight } from './SFSymbols';
+
+interface RoomBackContextValue {
+  hasBack: boolean;
+  triggerBack: () => void;
+  register: (id: string, onBack: () => void) => () => void;
+}
+
+const RoomBackContext = createContext<RoomBackContextValue | null>(null);
+
+export function RoomBackProvider({ children }: { children: React.ReactNode }) {
+  const [stackIds, setStackIds] = useState<string[]>([]);
+  const handlersRef = useRef<Record<string, () => void>>({});
+
+  const register = useCallback((id: string, onBack: () => void) => {
+    handlersRef.current[id] = onBack;
+    setStackIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    return () => {
+      delete handlersRef.current[id];
+      setStackIds((prev) => prev.filter((item) => item !== id));
+    };
+  }, []);
+
+  const triggerBack = useCallback(() => {
+    const topId = stackIds[stackIds.length - 1];
+    if (topId) {
+      handlersRef.current[topId]?.();
+    }
+  }, [stackIds]);
+
+  return (
+    <RoomBackContext.Provider
+      value={{
+        hasBack: stackIds.length > 0,
+        triggerBack,
+        register,
+      }}
+    >
+      {children}
+    </RoomBackContext.Provider>
+  );
+}
+
+export function useRoomBack(active: boolean, onBack: () => void) {
+  const ctx = useContext(RoomBackContext);
+  const id = useId();
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  const register = ctx?.register;
+
+  useEffect(() => {
+    if (!register || !active) return;
+    return register(id, () => onBackRef.current());
+  }, [register, active, id]);
+}
+
+export function useRoomBackState() {
+  const ctx = useContext(RoomBackContext);
+  return {
+    hasBack: Boolean(ctx?.hasBack),
+    triggerBack: ctx?.triggerBack || (() => {}),
+  };
+}
+
+/**
+ * Clean circular chevron Back button (Instagram / Facebook / iOS style) for desktop and mobile.
+ */
+export function BackButton({
+  onClick,
+  label,
+  className = '',
+}: {
+  onClick: () => void;
+  label?: string;
+  className?: string;
+}) {
+  const { t } = useLanguage();
+  const accessibleLabel = label || t('Back', 'Quay lại');
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        triggerHaptic('selection');
+        onClick();
+      }}
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
+      className={`w-8 h-8 rounded-full inline-flex items-center justify-center cursor-pointer transition-all hover:bg-white/[0.15] active:scale-95 shrink-0 ${className}`}
+      style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        color: '#EDEAE2',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="w-4 h-4 -translate-x-[0.5px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </button>
+  );
+}
+
+export interface DisciplineOption<T extends string> {
+  value: T;
+  code: string;
+  label: string;
+  hint: string;
+}
+
+export function DisciplineSwitcher<T extends string>({
+  ariaLabel,
+  value,
+  onChange,
+  options,
+}: {
+  ariaLabel: string;
+  value: T;
+  onChange: (next: T) => void;
+  options: readonly DisciplineOption<T>[];
+}) {
+  return (
+    <nav aria-label={ariaLabel} className="grid grid-cols-2 gap-3">
+      {options.map((item) => {
+        const active = value === item.value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => {
+              if (!active) {
+                triggerHaptic('selection');
+                onChange(item.value);
+              }
+            }}
+            className={`relative group rounded-xl px-4 py-3.5 text-left transition-all duration-200 cursor-pointer ${
+              active
+                ? 'bg-[#161a23] border border-[#cba86a]/60 shadow-[0_0_20px_-5px_rgba(203,168,106,0.18)]'
+                : 'bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152]'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span
+                className={`text-[11px] font-medium tabular-nums ${
+                  active ? 'text-[#cba86a]' : 'text-[#6b7280] group-hover:text-[#cba86a]'
+                }`}
+              >
+                {item.code}
+              </span>
+              {active && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#cba86a] shadow-[0_0_8px_#cba86a]" />
+              )}
+            </div>
+            <p
+              className={`text-[15px] font-semibold leading-snug pt-1 truncate ${
+                active ? 'text-white' : 'text-[#cbd5e1] group-hover:text-white'
+              }`}
+            >
+              {item.label}
+            </p>
+            <p className="text-[12px] text-[#6b7280] truncate mt-0.5">{item.hint}</p>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+export interface DirectoryCardStatus {
+  label: string;
+  tone?: 'gold' | 'emerald' | 'muted';
+}
+
+export function DirectoryCard({
+  code,
+  title,
+  subtitle,
+  statuses = [],
+  onClick,
+}: {
+  code: string;
+  title: string;
+  subtitle: string;
+  statuses?: DirectoryCardStatus[];
+  onClick: () => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        triggerHaptic('selection');
+        onClick();
+      }}
+      className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-5 py-4 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center flex-wrap gap-2.5">
+            <span className="text-[11px] font-medium text-[#cba86a]">{code}</span>
+            <h3 className="text-[15px] font-semibold text-white group-hover:text-[#f3f4f6]">
+              {title}
+            </h3>
+          </div>
+          <p className="text-[12px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
+            {subtitle}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between lg:justify-end gap-4 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
+          <div className="flex items-center gap-3 text-[11px] font-medium">
+            {statuses.map((st) => {
+              const toneClass =
+                st.tone === 'emerald'
+                  ? 'text-emerald-400'
+                  : st.tone === 'gold'
+                  ? 'text-[#cba86a]'
+                  : 'text-[#8b95a7]';
+              const dotClass =
+                st.tone === 'emerald'
+                  ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
+                  : st.tone === 'gold'
+                  ? 'bg-[#cba86a]'
+                  : 'bg-[#6b7280]';
+              return (
+                <span key={st.label} className={`inline-flex items-center ${toneClass}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${dotClass}`} />
+                  {st.label}
+                </span>
+              );
+            })}
+          </div>
+
+          <span className="ml-auto lg:ml-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#1a202c] group-hover:bg-[#cba86a] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[14px] transition-all">
+            <span>{t('Open', 'Mở')}</span>
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
 
 export function Card({
   children,
@@ -483,4 +732,35 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 export function useToast() {
   return useContext(ToastContext);
+}
+
+/** Prominent Editorial Section Heading with optional numeric index pill */
+export function SectionHeading({
+  code,
+  title,
+  accent = '#cba86a',
+}: {
+  code?: string;
+  title: string;
+  accent?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {code && (
+        <span
+          className="px-2 py-0.5 rounded-md tabular-nums text-[11px] font-medium shrink-0"
+          style={{
+            backgroundColor: 'rgba(203, 168, 106, 0.14)',
+            color: accent,
+            border: '1px solid rgba(203, 168, 106, 0.28)',
+          }}
+        >
+          {code}
+        </span>
+      )}
+      <h3 className="text-[17px] font-semibold tracking-[-0.015em] text-[#EDEAE2] leading-snug">
+        {title}
+      </h3>
+    </div>
+  );
 }

@@ -1,3 +1,5 @@
+import type { MediaAttachmentRef } from '../../types';
+
 export type ResearchCoreSectionKey =
   | 'overview'
   | 'problem'
@@ -26,10 +28,14 @@ export interface ResearchSectionMeta {
   key: ResearchCoreSectionKey;
   code: string; // '01'..'12'
   shortLabel: string; // 'Overview', 'Problem', ...
+  shortLabelVi: string;
   title: string; // 'Research Overview', 'Problem Identification', ...
+  titleVi: string;
   subtitle: string;
+  subtitleEn: string;
   phase: 1 | 2 | 3 | 4 | 5;
   phaseLabel: string;
+  phaseLabelEn: string;
 }
 
 export const RESEARCH_PHASES: { phase: 1 | 2 | 3 | 4 | 5; title: string; range: string }[] = [
@@ -45,109 +51,157 @@ export const RESEARCH_SECTIONS_META: ResearchSectionMeta[] = [
     key: 'overview',
     code: '01',
     shortLabel: 'Overview',
+    shortLabelVi: 'Tổng quan',
     title: 'Research Overview',
+    titleVi: 'Tổng quan nghiên cứu',
     subtitle: 'Thông tin tổng quan về nghiên cứu.',
+    subtitleEn: 'High-level overview of this study.',
     phase: 1,
     phaseLabel: 'Đợt 1: Khởi tạo',
+    phaseLabelEn: 'Phase 1: Initiation',
   },
   {
     key: 'problem',
     code: '02',
     shortLabel: 'Problem',
+    shortLabelVi: 'Vấn đề',
     title: 'Problem Identification',
-    subtitle: 'Define what you are trying to understand.',
+    titleVi: 'Xác định vấn đề',
+    subtitle: 'Xác định rõ vấn đề bạn đang muốn tìm hiểu.',
+    subtitleEn: 'Define what you are trying to understand.',
     phase: 1,
     phaseLabel: 'Đợt 1: Khởi tạo',
+    phaseLabelEn: 'Phase 1: Initiation',
   },
   {
     key: 'questions',
     code: '03',
     shortLabel: 'Questions',
+    shortLabelVi: 'Câu hỏi',
     title: 'Research Questions',
+    titleVi: 'Câu hỏi nghiên cứu',
     subtitle: 'Đặt câu hỏi trung tâm và ranh giới phạm vi nghiên cứu.',
+    subtitleEn: 'Frame the core questions and scope.',
     phase: 1,
     phaseLabel: 'Đợt 1: Khởi tạo',
+    phaseLabelEn: 'Phase 1: Initiation',
   },
   {
     key: 'hypothesis',
     code: '04',
     shortLabel: 'Hypothesis',
+    shortLabelVi: 'Giả thuyết',
     title: 'Hypothesis & Objectives',
+    titleVi: 'Giả thuyết & Mục tiêu',
     subtitle: 'Giả thuyết ban đầu, mục tiêu và kết quả kỳ vọng.',
+    subtitleEn: 'Initial hypothesis, objectives, and expected outcomes.',
     phase: 2,
     phaseLabel: 'Đợt 2: Tìm hiểu',
+    phaseLabelEn: 'Phase 2: Exploration',
   },
   {
     key: 'literature',
     code: '05',
     shortLabel: 'Literature',
+    shortLabelVi: 'Tài liệu nền',
     title: 'Literature Review',
+    titleVi: 'Tổng quan tài liệu',
     subtitle: 'Tổng hợp lý thuyết nền tảng, nghiên cứu trước và khoảng trống tri thức.',
+    subtitleEn: 'Synthesize foundational theory, prior work, and gaps.',
     phase: 2,
     phaseLabel: 'Đợt 2: Tìm hiểu',
+    phaseLabelEn: 'Phase 2: Exploration',
   },
   {
     key: 'methodology',
     code: '06',
     shortLabel: 'Methodology',
+    shortLabelVi: 'Phương pháp',
     title: 'Research Methodology',
-    subtitle: 'Thiết kế cách tiếp cận và thu thập dữ liệu (chỉ mở trường phù hợp).',
+    titleVi: 'Phương pháp nghiên cứu',
+    subtitle: 'Thiết kế cách tiếp cận và thu thập dữ liệu.',
+    subtitleEn: 'Design your approach and data collection.',
     phase: 3,
     phaseLabel: 'Đợt 3: Phân tích',
+    phaseLabelEn: 'Phase 3: Analysis',
   },
   {
     key: 'evidence',
     code: '07',
     shortLabel: 'Evidence',
+    shortLabelVi: 'Bằng chứng',
     title: 'Evidence & Analysis',
+    titleVi: 'Bằng chứng & Phân tích',
     subtitle: 'Thu thập phát hiện, dữ liệu, mẫu hình và bằng chứng trái chiều.',
+    subtitleEn: 'Collect findings, data, patterns, and counter-evidence.',
     phase: 3,
     phaseLabel: 'Đợt 3: Phân tích',
+    phaseLabelEn: 'Phase 3: Analysis',
   },
   {
     key: 'experiment',
     code: '08',
     shortLabel: 'Experiment',
+    shortLabelVi: 'Thử nghiệm',
     title: 'Experiment & Observation',
-    subtitle: 'Thử nghiệm và ghi nhật ký quan sát thực tế (tùy chọn theo đề tài).',
+    titleVi: 'Thử nghiệm & Quan sát',
+    subtitle: 'Thử nghiệm và ghi nhật ký quan sát thực tế.',
+    subtitleEn: 'Run experiments and log real-world observations.',
     phase: 4,
     phaseLabel: 'Đợt 4: Kiểm chứng',
+    phaseLabelEn: 'Phase 4: Validation',
   },
   {
     key: 'discussion',
     code: '09',
     shortLabel: 'Discussion',
+    shortLabelVi: 'Thảo luận',
     title: 'Discussion',
+    titleVi: 'Thảo luận & Phản biện',
     subtitle: 'Diễn giải, đối chiếu, phản biện và các giải thích thay thế.',
+    subtitleEn: 'Interpret, compare, critique, and explore alternatives.',
     phase: 4,
     phaseLabel: 'Đợt 4: Kiểm chứng',
+    phaseLabelEn: 'Phase 4: Validation',
   },
   {
     key: 'conclusion',
     code: '10',
     shortLabel: 'Conclusion',
+    shortLabelVi: 'Kết luận',
     title: 'Conclusion',
+    titleVi: 'Kết luận',
     subtitle: 'Tóm tắt phát hiện, đánh giá giả thuyết, giới hạn và câu hỏi tiếp nối.',
+    subtitleEn: 'Summarize findings, evaluate hypothesis, and note next questions.',
     phase: 5,
     phaseLabel: 'Đợt 5: Hoàn thiện',
+    phaseLabelEn: 'Phase 5: Synthesis',
   },
   {
     key: 'reflection',
     code: '11',
     shortLabel: 'Reflection',
+    shortLabelVi: 'Chiêm nghiệm',
     title: 'Personal Reflection',
+    titleVi: 'Chiêm nghiệm cá nhân',
     subtitle: 'Đối chiếu niềm tin ban đầu, bài học và thay đổi cá nhân.',
+    subtitleEn: 'Compare initial beliefs, lessons learned, and personal shifts.',
     phase: 5,
     phaseLabel: 'Đợt 5: Hoàn thiện',
+    phaseLabelEn: 'Phase 5: Synthesis',
   },
   {
     key: 'references',
     code: '12',
     shortLabel: 'References',
+    shortLabelVi: 'Tham khảo',
     title: 'References',
+    titleVi: 'Tài liệu tham khảo',
     subtitle: 'Danh mục tài liệu tham khảo và định dạng trích dẫn.',
+    subtitleEn: 'Bibliography and citation list.',
     phase: 5,
     phaseLabel: 'Đợt 5: Hoàn thiện',
+    phaseLabelEn: 'Phase 5: Synthesis',
   },
 ];
 
@@ -247,6 +301,8 @@ export interface ResearchProject {
 
   // Relations & backward compatibility
   sourceIds: string[];
+  quickNote?: string;
+  audios?: MediaAttachmentRef[];
   igPostId?: string;
   igRawVi?: string;
   igEnglishRewrite?: string;
@@ -774,6 +830,8 @@ export function normalizeResearchJournalState(
           : {},
 
       sourceIds,
+      quickNote: typeof p.quickNote === 'string' ? p.quickNote : '',
+      audios: Array.isArray(p.audios) ? (p.audios as MediaAttachmentRef[]) : [],
       igPostId: p.igPostId ? String(p.igPostId) : undefined,
       igRawVi: p.igRawVi ? String(p.igRawVi) : undefined,
       igEnglishRewrite: p.igEnglishRewrite ? String(p.igEnglishRewrite) : undefined,

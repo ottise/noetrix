@@ -11,6 +11,31 @@ import type { LocalMediaBlob } from '../types';
 
 export { isCloudinaryConfigured, getCloudinaryConfig, saveCloudinaryConfig };
 
+/** Detect iOS / iPadOS Safari & WebKit where WebM audio playback is unsupported or unreliable */
+export function isIosWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return (
+    /iP(hone|ad|od)/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
+/** Rewrite Cloudinary .webm audio/video URLs to f_mp3 when needed on iOS Safari */
+export function getIosSafeAudioUrl(url?: string): string | undefined {
+  if (!url) return url;
+  if (!isIosWebKit()) return url;
+  if (
+    url.includes('res.cloudinary.com/') &&
+    url.includes('/upload/') &&
+    /\.webm($|\?)/i.test(url) &&
+    !/\/f_(mp3|aac|mp4|m4a)\b/i.test(url)
+  ) {
+    return url.replace('/upload/', '/upload/f_mp3/').replace(/\.webm($|\?)/i, '.mp3$1');
+  }
+  return url;
+}
+
 /** Pick the safest MediaRecorder MIME type across iOS Safari (mp4) and Desktop Chrome/Edge (webm) */
 export function getSupportedAudioMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
@@ -171,16 +196,20 @@ export async function resolveMediaPlayableUrl(
 ): Promise<{ url: string; revoke: () => void } | null> {
   if (mediaId) {
     const local = await db.mediaBlobs.get(mediaId);
-    if (local?.blob) {
+    const localIsIncompatibleWebm =
+      isIosWebKit() && Boolean(local?.mimeType?.includes('webm') && (local?.remoteUrl || remoteUrl));
+    if (local?.blob && !localIsIncompatibleWebm) {
       const url = URL.createObjectURL(local.blob);
       return { url, revoke: () => URL.revokeObjectURL(url) };
     }
-    if (local?.remoteUrl) {
-      return { url: local.remoteUrl, revoke: () => {} };
+    const safeRemote = getIosSafeAudioUrl(local?.remoteUrl || remoteUrl);
+    if (safeRemote) {
+      return { url: safeRemote, revoke: () => {} };
     }
   }
-  if (remoteUrl) {
-    return { url: remoteUrl, revoke: () => {} };
+  const safeRemote = getIosSafeAudioUrl(remoteUrl);
+  if (safeRemote) {
+    return { url: safeRemote, revoke: () => {} };
   }
   return null;
 }

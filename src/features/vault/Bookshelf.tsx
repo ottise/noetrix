@@ -18,9 +18,10 @@ import {
   Modal,
   ProgressBar,
   SegmentedControl,
+  useRoomBack,
   useToast,
 } from '../../components/ui/Primitives';
-import { SFChevronBack, SFChevronRight } from '../../components/ui/SFSymbols';
+import { SFChevronRight } from '../../components/ui/SFSymbols';
 import { ReadingRoomSanctuary } from './ReadingRoomSanctuary';
 
 export function Bookshelf() {
@@ -31,8 +32,11 @@ export function Bookshelf() {
   const [filter, setFilter] = useState<'reading' | 'unread' | 'finished'>('reading');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [readingRoomOpen, setReadingRoomOpen] = useState(false);
+
+  useRoomBack(Boolean(selectedId) && !readingRoomOpen, () => setSelectedId(null));
   const [readingBookId, setReadingBookId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [confirmDeleteBook, setConfirmDeleteBook] = useState<Book | null>(null);
   const [pickedBook, setPickedBook] = useState<Book | null>(null);
 
   const [title, setTitle] = useState('');
@@ -84,8 +88,8 @@ export function Bookshelf() {
     await awardXp(xp);
     showToast(
       finished
-        ? t(`Finished "${book.title}" · +${xp} XP`, `Đọc xong "${book.title}" · +${xp} XP`)
-        : t(`+${delta} pages in "${book.title}" · +${xp} XP`, `+${delta} trang "${book.title}" · +${xp} XP`)
+        ? t(`Finished "${book.title}"`, `Đọc xong "${book.title}"`)
+        : t(`+${delta} pages in "${book.title}"`, `+${delta} trang "${book.title}"`)
     );
   };
 
@@ -164,8 +168,8 @@ export function Bookshelf() {
       setQuoteFile(null);
       showToast(
         uploadedToCloud
-          ? t('Saved quote & page image to Cloudinary · +15 XP', 'Đã lưu trích dẫn & ảnh trang sách lên Cloudinary · +15 XP')
-          : t('Saved quote · +15 XP', 'Đã lưu trích dẫn · +15 XP')
+          ? t('Saved quote & page image to Cloudinary', 'Đã lưu trích dẫn & ảnh trang sách lên Cloudinary')
+          : t('Saved quote', 'Đã lưu trích dẫn')
       );
     } finally {
       setSavingQuote(false);
@@ -256,17 +260,7 @@ export function Bookshelf() {
     const pct = selected.totalPages > 0 ? Math.round((selected.currentPage / selected.totalPages) * 100) : 0;
     return (
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setSelectedId(null)}
-            className="inline-flex items-center gap-1 text-[16px] font-medium ios-pressable cursor-pointer"
-            style={{ color: 'var(--ios-blue)' }}
-          >
-            <SFChevronBack className="w-4 h-4" />
-            {t('Bookshelf', 'Tủ sách')}
-          </button>
-
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -278,11 +272,7 @@ export function Bookshelf() {
             </button>
             <button
               type="button"
-              onClick={async () => {
-                if (!window.confirm(t('Remove this book from shelf?', 'Xóa cuốn sách này khỏi kệ?'))) return;
-                await db.books.delete(selected.id);
-                setSelectedId(null);
-              }}
+              onClick={() => setConfirmDeleteBook(selected)}
               className="text-[14px] font-medium cursor-pointer"
               style={{ color: 'var(--ios-red)' }}
             >
@@ -347,7 +337,7 @@ export function Bookshelf() {
                 className="px-3.5 py-1.5 rounded-full text-white text-[13px] font-medium ios-pressable cursor-pointer"
                 style={{ backgroundColor: 'var(--ios-blue)' }}
               >
-                {t('+15 pages (+25 XP)', '+15 trang (+25 XP)')}
+                {t('+15 pages', '+15 trang')}
               </button>
               <input
                 type="number"
@@ -524,6 +514,45 @@ export function Bookshelf() {
             </div>
           ))}
         </IOSListGroup>
+
+        <Modal
+          open={confirmDeleteBook !== null}
+          onClose={() => setConfirmDeleteBook(null)}
+          title={t('Remove Book', 'Xóa Sách')}
+          maxWidth="max-w-sm"
+        >
+          <div className="space-y-4">
+            <p className="text-[14px] text-[var(--ios-label-secondary)] leading-relaxed">
+              {t(
+                `Remove "${confirmDeleteBook?.title || ''}" from your shelf?`,
+                `Bạn có chắc muốn xóa "${confirmDeleteBook?.title || ''}" khỏi kệ sách?`
+              )}
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBook(null)}
+                className="px-4 py-2 rounded-[10px] ios-fill text-[13.5px] font-medium cursor-pointer"
+              >
+                {t('Cancel', 'Hủy')}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirmDeleteBook) return;
+                  await db.books.delete(confirmDeleteBook.id);
+                  setConfirmDeleteBook(null);
+                  setSelectedId(null);
+                  showToast(t('Removed book from shelf', 'Đã xóa sách khỏi kệ'), 'info');
+                }}
+                className="px-4 py-2 rounded-[10px] text-[13.5px] font-semibold text-white cursor-pointer"
+                style={{ backgroundColor: 'var(--ios-red)' }}
+              >
+                {t('Delete', 'Xóa')}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     );
   }
@@ -555,11 +584,8 @@ export function Bookshelf() {
           />
         </div>
         <div className="md:col-span-8 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <span className="editorial-eyebrow" style={{ color: 'var(--os-brass)' }}>
-              {t('READING ROOM · QUIET SANCTUARY', 'PHÒNG ĐỌC · KHÔNG GIAN TĨNH LẶNG')}
-            </span>
-            <h2 className="font-editorial text-[24px] sm:text-[27px] leading-tight" style={{ color: 'var(--os-ivory-bright)' }}>
+          <div className="space-y-1">
+            <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.015em]" style={{ color: 'var(--os-ivory-bright)' }}>
               {t('Bookshelf & Reading Sanctuary', 'Kệ Sách & Không Gian Đọc Tập Trung')}
             </h2>
             <p className="text-[13px] leading-relaxed max-w-xl" style={{ color: 'var(--os-ivory-muted)' }}>
@@ -618,7 +644,7 @@ export function Bookshelf() {
         <div className="grid grid-cols-3 pt-1">
           <div className="pr-3">
             <p className="text-[12px] text-[var(--ios-label-secondary)]">{t('Unread', 'Chưa đọc')}</p>
-            <p className="text-[24px] leading-[29px] font-bold tabular-nums mt-0.5">
+            <p className="text-[20px] leading-tight font-semibold tabular-nums mt-0.5">
               {unreadBooks.length}
             </p>
           </div>
@@ -631,7 +657,7 @@ export function Bookshelf() {
           >
             <p className="text-[12px] text-[var(--ios-label-secondary)]">{t('Reading', 'Đang đọc')}</p>
             <p
-              className="text-[24px] leading-[29px] font-bold tabular-nums mt-0.5"
+              className="text-[20px] leading-tight font-semibold tabular-nums mt-0.5"
               style={{ color: 'var(--ios-blue)' }}
             >
               {readingBooks.length}
@@ -640,60 +666,13 @@ export function Bookshelf() {
           <div className="pl-3">
             <p className="text-[12px] text-[var(--ios-label-secondary)]">{t('Finished', 'Đã xong')}</p>
             <p
-              className="text-[24px] leading-[29px] font-bold tabular-nums mt-0.5"
+              className="text-[20px] leading-tight font-semibold tabular-nums mt-0.5"
               style={{ color: 'var(--ios-green)' }}
             >
               {finishedBooks.length}
             </p>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={handleRandomPick}
-          className="w-full py-2.5 rounded-[12px] ios-fill text-[14px] font-semibold ios-pressable cursor-pointer"
-          style={{ color: 'var(--ios-blue)' }}
-        >
-          {t('Pick a random book to read 10 pages', 'Bốc ngẫu nhiên 1 cuốn để đọc 10 trang')}
-        </button>
-
-        {pickedBook && (
-          <div className="p-3.5 rounded-[12px] ios-fill space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold" style={{ color: 'var(--ios-blue)' }}>
-                {t('Today’s Picked Book', 'Sách được chọn hôm nay')}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPickedBook(null)}
-                className="text-[12px] text-[var(--ios-label-secondary)] cursor-pointer"
-              >
-                {t('Close', 'Đóng')}
-              </button>
-            </div>
-            <p className="text-[16px] font-semibold">{pickedBook.title}</p>
-            {pickedBook.whyBought && (
-              <p className="text-[13px] text-[var(--ios-label-secondary)] italic">
-                “{pickedBook.whyBought}”
-              </p>
-            )}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  await db.books.update(pickedBook.id, { status: 'reading', updatedAt: Date.now() });
-                  setPickedBook(null);
-                  enterReadingRoom(pickedBook);
-                  showToast(t(`Started reading "${pickedBook.title}"`, `Bắt đầu đọc "${pickedBook.title}"`));
-                }}
-                className="px-4 py-1.5 rounded-full text-[13px] font-semibold cursor-pointer"
-                style={{ backgroundColor: '#cba86a', color: '#0c0f13' }}
-              >
-                {t('Open in Reading Room →', 'Mở vào Phòng Đọc Sách →')}
-              </button>
-            </div>
-          </div>
-        )}
       </Card>
 
       <SegmentedControl

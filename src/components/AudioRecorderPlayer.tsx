@@ -8,6 +8,7 @@ import {
   formatDuration,
 } from '../lib/media';
 import { triggerHaptic } from '../lib/haptics';
+import { useLanguage } from '../lib/i18n';
 import { SFMic, SFPlay, SFPause } from './ui/SFSymbols';
 import { useToast } from './ui/Primitives';
 
@@ -103,7 +104,7 @@ function AudioTrackCard({
             className="w-full bg-transparent text-[14px] font-medium truncate"
           />
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[11px] font-mono tabular-nums text-[var(--ios-label-secondary)]">
+            <span className="text-[11px] tabular-nums text-[var(--ios-label-secondary)]">
               {formatDuration(currentTime)}
             </span>
             <input
@@ -115,7 +116,7 @@ function AudioTrackCard({
               onChange={handleSeek}
               className="flex-1 h-1 accent-[#007AFF] cursor-pointer"
             />
-            <span className="text-[11px] font-mono tabular-nums text-[var(--ios-label-secondary)]">
+            <span className="text-[11px] tabular-nums text-[var(--ios-label-secondary)]">
               {formatDuration(duration)}
             </span>
           </div>
@@ -124,7 +125,7 @@ function AudioTrackCard({
         <button
           type="button"
           onClick={cycleSpeed}
-          className="px-2 py-1 rounded-[8px] text-[11px] font-mono font-semibold tabular-nums ios-pressable cursor-pointer shrink-0"
+          className="px-2 py-1 rounded-[8px] text-[11px] font-semibold tabular-nums ios-pressable cursor-pointer shrink-0"
           style={{ backgroundColor: 'var(--ios-fill-secondary)' }}
         >
           {SPEEDS[speedIdx]}x
@@ -144,6 +145,7 @@ function AudioTrackCard({
         <audio
           ref={audioRef}
           src={src}
+          playsInline
           preload="metadata"
           onLoadedMetadata={(e) => {
             const d = e.currentTarget.duration;
@@ -160,9 +162,15 @@ function AudioTrackCard({
 export function AudioRecorderPlayer({
   audios,
   onChange,
+  title,
+  emptyHint,
+  compactMobile = false,
 }: {
   audios: MediaAttachmentRef[];
   onChange: (next: MediaAttachmentRef[]) => void;
+  title?: string;
+  emptyHint?: string;
+  compactMobile?: boolean;
 }) {
   const [recording, setRecording] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -170,8 +178,8 @@ export function AudioRecorderPlayer({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     return () => {
@@ -249,77 +257,46 @@ export function AudioRecorderPlayer({
     }
   };
 
-  const handleUploadAudio = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const { mediaId, remoteUrl } = await saveMediaLocalAndMaybeUpload('audio', file, file.name);
-      const cleanName = file.name.replace(/\.[^.]+$/, '');
-      onChange([
-        ...audios,
-        {
-          mediaId,
-          fileName: file.name,
-          caption: cleanName || `File ghi âm #${audios.length + 1}`,
-          remoteUrl,
-          createdAt: Date.now(),
-        },
-      ]);
-      showToast('Đã tải lên file ghi âm');
-    } catch (err) {
-      console.error(err);
-      showToast('Không thể lưu file ghi âm.', 'error');
-    } finally {
-      if (uploadInputRef.current) uploadInputRef.current.value = '';
-    }
-  };
-
   const handleDelete = async (mediaId: string) => {
     await deleteMediaBlob(mediaId);
     onChange(audios.filter((a) => a.mediaId !== mediaId));
-    showToast('Đã xóa bản ghi âm', 'info');
+    showToast(t('Deleted recording', 'Đã xóa bản ghi âm'), 'info');
   };
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="ios-section-header">Ghi âm bài giảng ({audios.length})</span>
+        <span className="ios-section-header">
+          {title
+            ? `${title} (${audios.length})`
+            : t(`Voice Note (${audios.length})`, `Ghi âm (${audios.length})`)}
+        </span>
 
         <div className="flex items-center gap-2">
           {!recording ? (
             <button
               type="button"
               onClick={startRecording}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-white text-[12px] font-semibold ios-pressable cursor-pointer"
+              className={`inline-flex items-center justify-center gap-2 rounded-full text-white font-semibold ios-pressable cursor-pointer ${
+                compactMobile ? 'px-5 py-2.5 text-[13.5px] min-h-[44px]' : 'px-3.5 py-1.5 text-[12px]'
+              }`}
               style={{ backgroundColor: 'var(--ios-red)' }}
             >
-              <SFMic className="w-3.5 h-3.5" filled />
-              Ghi âm
+              <SFMic className="w-4 h-4" filled />
+              {t('Record', 'Ghi âm')}
             </button>
           ) : (
             <button
               type="button"
               onClick={stopRecording}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-white text-[12px] font-semibold tabular-nums animate-pulse cursor-pointer"
+              className={`inline-flex items-center justify-center gap-2 rounded-full text-white font-semibold tabular-nums animate-pulse cursor-pointer ${
+                compactMobile ? 'px-5 py-2.5 text-[13.5px] min-h-[44px]' : 'px-3.5 py-1.5 text-[12px]'
+              }`}
               style={{ backgroundColor: 'var(--ios-red)' }}
             >
-              Dừng · {formatDuration(elapsedSec)}
+              {t('Stop', 'Dừng')} · {formatDuration(elapsedSec)}
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => uploadInputRef.current?.click()}
-            className="px-3 py-1.5 rounded-full ios-elevated text-[12px] font-semibold ios-pressable cursor-pointer"
-          >
-            Tải audio
-          </button>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept="audio/*,.m4a,.mp3,.wav,.webm"
-            className="hidden"
-            onChange={(e) => handleUploadAudio(e.target.files?.[0])}
-          />
         </div>
       </div>
 
@@ -333,15 +310,21 @@ export function AudioRecorderPlayer({
         >
           <div className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full animate-ping" style={{ backgroundColor: 'var(--ios-red)' }} />
-            <span className="text-[12px] font-medium">Đang thu âm bài giảng workflow...</span>
+            <span className="text-[12px] font-medium">
+              {t('Recording voice note...', 'Đang thu âm...')}
+            </span>
           </div>
-          <span className="font-mono text-[14px] font-bold tabular-nums">{formatDuration(elapsedSec)}</span>
+          <span className="text-[14px] font-bold tabular-nums">{formatDuration(elapsedSec)}</span>
         </div>
       )}
 
       {audios.length === 0 && !recording ? (
         <div className="p-4 rounded-[12px] ios-fill text-center text-[13px] text-[var(--ios-label-secondary)]">
-          Chưa có bản ghi âm nào. Bấm <strong>Ghi âm</strong> để giảng lại workflow bằng lời của bạn.
+          {emptyHint ||
+            t(
+              'No recordings yet. Tap Record to capture your voice note.',
+              'Chưa có bản ghi âm nào. Bấm Ghi âm để nói lại ý tưởng của bạn.'
+            )}
         </div>
       ) : (
         <div className="space-y-2">

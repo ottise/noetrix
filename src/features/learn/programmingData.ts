@@ -1,5 +1,7 @@
 export type UnderstandingState = 'exposed' | 'understood' | 'applied';
 
+import { buildAiWorkflowCarTopics } from './aiWorkflowTopics';
+
 export type LessonModuleId =
   | 'theory'
   | 'notes'
@@ -238,8 +240,8 @@ export function buildInitialCodeLearningState(): CodeLearningEnvState {
       id: 'subj_ai',
       code: 'SUBJ.04',
       title: 'AI Workflow & Agents',
-      subtitle: 'Prompt Chaining · Routing · Tool Calling · Deterministic Guardrails',
-      focusArea: 'Building reliable systems on top of probabilistic models',
+      subtitle: 'Clean Arch · FSM & Queue · AiDecisionGate · ML/Bandit/RAG · 0→1 Roadmap',
+      focusArea: 'Xây hệ thống Workflow + AI thực chiến (từ Xưởng xe 3D đến Agentic Pipelines)',
       accent: 'var(--os-brass)',
     },
     {
@@ -927,13 +929,14 @@ Access-Control-Allow-Credentials: true`,
     },
 
     // =========================================================================
-    // AI WORKFLOW & AGENTS: Agentic Routing, Chaining & Tool Calling
+    // AI WORKFLOW & AGENTS: 0 -> Tự làm hệ thống Workflow + AI (Ví dụ Xưởng Xe 3D)
     // =========================================================================
+    ...buildAiWorkflowCarTopics(now, addDaysIso),
     {
       id: 'top_ai_agents',
       subjectId: 'subj_ai',
-      moduleGroup: '01 · Agentic Architecture',
-      title: 'Agentic Routing, Prompt Chaining & Tool Calling',
+      moduleGroup: '08 · Agentic Routing & LLM',
+      title: '08. Agentic Routing, Prompt Chaining & Tool Calling',
       subtitle: 'Deterministic Chassis · JSON Contracts · Idempotency · Fallback Loops',
       understanding: 'applied',
       lastStudiedModule: 'practice',

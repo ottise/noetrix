@@ -2,6 +2,13 @@ import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, getLocalDateStr } from '../db/database';
 import { initFirebaseIfConfigured } from './firebase';
+import {
+  SYNCABLE_KV_KEYS,
+  readLocalKvWithTimestamp,
+  writeLocalKvFromSync,
+  backfillMediaUrlInKvStores,
+  notifyKvSynced,
+} from './kvSync';
 
 const SYNC_TABLES = [
   { name: 'profile', keyField: 'id' },
@@ -89,6 +96,8 @@ export async function syncWithFirebaseCloud(): Promise<{
               await db.hobbyLogs.update(hb.id, { imageRemoteUrl: remoteUrl });
             }
           }
+
+          backfillMediaUrlInKvStores(media.id, remoteUrl);
         } catch (err) {
           console.warn('Skipped media upload:', media.id, err);
         }
@@ -140,6 +149,46 @@ export async function syncWithFirebaseCloud(): Promise<{
         }
       }
     }
+  }
+
+  // 3. Sync localStorage workspaces (Psychology, Writing Room, LeetCode, OS/Net KB)
+  const kvColRef = collection(firestore, 'users', uid, 'kvState');
+  const kvSnap = await getDocs(kvColRef);
+  const remoteKv = new Map<string, { raw: string; updatedAt: number }>();
+  kvSnap.forEach((docSnap) => {
+    const data = docSnap.data() as { raw?: unknown; updatedAt?: unknown };
+    if (typeof data.raw === 'string') {
+      remoteKv.set(docSnap.id, {
+        raw: data.raw,
+        updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : 0,
+      });
+    }
+  });
+
+  let anyKvPulled = false;
+  for (const key of SYNCABLE_KV_KEYS) {
+    const localKv = readLocalKvWithTimestamp(key);
+    const remKv = remoteKv.get(key);
+    if (localKv && !remKv) {
+      await setDoc(doc(kvColRef, key), { raw: localKv.raw, updatedAt: localKv.updatedAt });
+      pushed++;
+    } else if (!localKv && remKv) {
+      writeLocalKvFromSync(key, remKv.raw, remKv.updatedAt);
+      pulled++;
+      anyKvPulled = true;
+    } else if (localKv && remKv) {
+      if (localKv.updatedAt > remKv.updatedAt) {
+        await setDoc(doc(kvColRef, key), { raw: localKv.raw, updatedAt: localKv.updatedAt });
+        pushed++;
+      } else if (remKv.updatedAt > localKv.updatedAt && localKv.raw !== remKv.raw) {
+        writeLocalKvFromSync(key, remKv.raw, remKv.updatedAt);
+        pulled++;
+        anyKvPulled = true;
+      }
+    }
+  }
+  if (anyKvPulled) {
+    notifyKvSynced();
   }
 
   return { pushed, pulled, mediaUploaded };

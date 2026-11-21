@@ -205,37 +205,6 @@ export function SettingsModal({
   return (
     <Modal open={open} onClose={onClose} title={t('Settings', 'Cài đặt')}>
       <div className="space-y-6">
-        {/* Progress Summary */}
-        <div className="ios-card p-4 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[12px] font-semibold" style={{ color: 'var(--ios-blue)' }}>
-                {t(`Level ${levelInfo.level}`, `Cấp ${levelInfo.level}`)} · {levelInfo.title}
-              </p>
-              <p className="text-[24px] font-bold tracking-tight tabular-nums mt-0.5">
-                {profile.xp} XP
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[12px] text-[var(--ios-label-secondary)]">{t('Focus Rescues', 'Thắng TikTok')}</p>
-              <p className="text-[20px] font-bold tabular-nums" style={{ color: 'var(--ios-green)' }}>
-                {profile.tiktokRescues} {t('times', 'lần')}
-              </p>
-            </div>
-          </div>
-          <ProgressBar
-            value={levelInfo.currentLevelXp}
-            max={levelInfo.nextLevelXp}
-            colorClass="bg-[#007AFF] dark:bg-[#0A84FF]"
-          />
-          <p className="text-[12px] text-[var(--ios-label-secondary)] tabular-nums">
-            {t(
-              `${levelInfo.nextLevelXp - levelInfo.currentLevelXp} XP to reach Level ${levelInfo.level + 1}`,
-              `Còn ${levelInfo.nextLevelXp - levelInfo.currentLevelXp} XP để lên cấp ${levelInfo.level + 1}`
-            )}
-          </p>
-        </div>
-
         {/* Native iOS Inset Grouped Preferences + Language Switcher */}
         <IOSListGroup header={t('Language, Appearance & Feedback', 'Ngôn ngữ, Giao diện & Phản hồi')}>
           <div className="px-4 py-3 flex items-center justify-between gap-3">

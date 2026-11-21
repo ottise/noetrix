@@ -107,7 +107,7 @@ export function SpinWheelView() {
           if (s <= 1) {
             setTimerRunning(false);
             if (profile?.soundEnabled) playSubtleChime();
-            showToast('Hết giờ tập trung · Bấm Hoàn thành để nhận XP', 'info');
+            showToast('Hết giờ tập trung · Bấm Đã làm xong để ghi nhận', 'info');
             return 0;
           }
           return s - 1;
@@ -158,8 +158,8 @@ export function SpinWheelView() {
   const completeQuest = async () => {
     if (!winner) return;
     setTimerRunning(false);
-    await incrementTiktokRescue(winner.xpReward);
-    showToast(`Thắng TikTok · +${winner.xpReward} XP`);
+    await incrementTiktokRescue(0);
+    showToast(`Hoàn thành: ${winner.label}`);
     setWinner(null);
   };
 
@@ -318,7 +318,7 @@ export function SpinWheelView() {
         <Card className="space-y-4">
           <div>
             <p className="text-[13px] font-medium tabular-nums" style={{ color: 'var(--ios-blue)' }}>
-              {winner.category} · {winner.suggestedMinutes} phút · +{winner.xpReward} XP
+              {winner.category} · {winner.suggestedMinutes} phút
             </p>
             <h3 className="text-[19px] font-semibold leading-snug mt-1">{winner.label}</h3>
           </div>
@@ -361,7 +361,7 @@ export function SpinWheelView() {
               className="flex-1 py-3 rounded-[12px] text-white text-[15px] font-semibold ios-pressable cursor-pointer"
               style={{ backgroundColor: 'var(--ios-green)' }}
             >
-              Đã làm xong (+{winner.xpReward} XP)
+              Đã làm xong
             </button>
             <button
               type="button"
@@ -437,7 +437,7 @@ export function SpinWheelView() {
                     {opt.label}
                   </p>
                   <p className="text-[12px] text-[var(--ios-label-secondary)] tabular-nums">
-                    {opt.category} · {opt.suggestedMinutes}p · +{opt.xpReward} XP
+                    {opt.category} · {opt.suggestedMinutes}p
                   </p>
                 </button>
                 <button

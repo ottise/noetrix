@@ -3,7 +3,7 @@ import { db, createId, getLocalDateStr, addDaysStr } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
 import { persistAllDataToSourceCode, scheduleSourceCodeSave } from '../../lib/sourceStore';
-import { Modal, useToast } from '../../components/ui/Primitives';
+import { Modal, useRoomBack, useToast } from '../../components/ui/Primitives';
 import {
   CITATION_FORMATS,
   createBlankResearchProject,
@@ -34,22 +34,25 @@ const RJ_STORAGE_KEY = 'noetrix_personal_research_journal_v1';
 
 const STATUS_META: Record<
   ResearchSectionStatus,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; labelVi: string; color: string; bg: string; border: string }
 > = {
   not_started: {
     label: 'Not Started',
+    labelVi: 'Chưa bắt đầu',
     color: 'rgba(217, 213, 203, 0.55)',
     bg: 'rgba(217, 213, 203, 0.06)',
     border: 'rgba(217, 213, 203, 0.14)',
   },
   in_progress: {
     label: 'In Progress',
+    labelVi: 'Đang làm',
     color: '#B99B79',
     bg: 'rgba(185, 155, 121, 0.12)',
     border: 'rgba(185, 155, 121, 0.35)',
   },
   completed: {
     label: 'Completed',
+    labelVi: 'Hoàn thành',
     color: '#9BAA98',
     bg: 'rgba(155, 170, 152, 0.14)',
     border: 'rgba(155, 170, 152, 0.38)',
@@ -145,6 +148,27 @@ export function PsychologyPipeline() {
     const syncToDexie = async () => {
       for (const proj of state.projects) {
         const postId = proj.igPostId || `psy_${proj.id}`;
+        const hasRealContent =
+          (proj.title.trim() && proj.title.trim() !== 'Nghiên cứu mới') ||
+          Boolean(
+            proj.abstract.trim() ||
+              proj.question.trim() ||
+              proj.background.trim() ||
+              proj.observation.trim() ||
+              proj.hypothesis.trim() ||
+              proj.literatureReview.trim() ||
+              proj.evidence.trim() ||
+              proj.findings.trim() ||
+              proj.conclusion.trim() ||
+              proj.currentBelief.trim() ||
+              (proj.quickNote || '').trim() ||
+              (proj.audios || []).length > 0 ||
+              proj.sourceIds.length > 0
+          );
+        if (!hasRealContent) {
+          await db.psychologyPosts.delete(postId);
+          continue;
+        }
         await db.psychologyPosts.put({
           id: postId,
           title: proj.title,
@@ -343,6 +367,10 @@ export function PsychologyPipeline() {
       activeView: { kind: 'section', key },
     }));
   };
+
+  useRoomBack(state.activeView.kind === 'auxiliary', () =>
+    selectCoreSection(state.activeCoreSection)
+  );
 
   const selectAuxiliary = (key: 'notes' | 'sources' | 'timeline') => {
     triggerHaptic('selection');
@@ -614,18 +642,18 @@ export function PsychologyPipeline() {
             <span className="metadata text-[9.5px] uppercase tracking-[0.12em] block" style={{ color: 'var(--os-ivory-faint)' }}>
               {t('WORKFLOW PHASES (OPTIONAL FILTER)', 'GIAI ĐOẠN THỰC HIỆN (TÙY CHỌN LỌC)')}
             </span>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => setPhaseFilter(0)}
-                className="px-2 py-0.5 rounded-[5px] text-[10.5px] cursor-pointer"
+                className="px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors hover:border-[#B99B79]/50"
                 style={{
-                  backgroundColor: phaseFilter === 0 ? '#23262F' : 'transparent',
-                  color: phaseFilter === 0 ? '#EDEAE2' : 'var(--os-ivory-faint)',
+                  backgroundColor: phaseFilter === 0 ? '#23262F' : '#16181E',
+                  color: phaseFilter === 0 ? '#EDEAE2' : 'var(--os-ivory-muted)',
                   border:
                     phaseFilter === 0
-                      ? '1px solid rgba(217, 213, 203, 0.16)'
-                      : '1px solid transparent',
+                      ? '1px solid rgba(217, 213, 203, 0.35)'
+                      : '1px solid rgba(217, 213, 203, 0.14)',
                 }}
               >
                 {t('All (12)', 'Tất cả (12)')}
@@ -638,13 +666,13 @@ export function PsychologyPipeline() {
                     type="button"
                     title={ph.title}
                     onClick={() => setPhaseFilter(ph.phase)}
-                    className="px-2 py-0.5 rounded-[5px] text-[10.5px] cursor-pointer"
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors hover:border-[#B99B79]/50"
                     style={{
-                      backgroundColor: active ? 'rgba(185, 155, 121, 0.14)' : 'transparent',
-                      color: active ? '#B99B79' : 'var(--os-ivory-faint)',
+                      backgroundColor: active ? 'rgba(185, 155, 121, 0.18)' : '#16181E',
+                      color: active ? '#eac16f' : 'var(--os-ivory-muted)',
                       border: active
-                        ? '1px solid rgba(185, 155, 121, 0.3)'
-                        : '1px solid transparent',
+                        ? '1px solid rgba(234, 193, 111, 0.5)'
+                        : '1px solid rgba(217, 213, 203, 0.14)',
                     }}
                   >
                     {t(`Phase ${ph.phase}`, `Đợt ${ph.phase}`)}
@@ -697,12 +725,12 @@ export function PsychologyPipeline() {
                         fontWeight: isActive ? 600 : 400,
                       }}
                     >
-                      {sec.shortLabel}
+                      {t(sec.shortLabel, sec.shortLabelVi)}
                     </span>
                   </div>
 
                   <span
-                    title={STATUS_META[status].label}
+                    title={t(STATUS_META[status].label, STATUS_META[status].labelVi)}
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: dotColor }}
                   />
@@ -772,17 +800,6 @@ export function PsychologyPipeline() {
       <section className="flex-1 min-w-0 p-5 sm:p-7 lg:p-9 flex flex-col justify-between gap-8">
         {state.activeView.kind === 'auxiliary' ? (
           <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => selectCoreSection(state.activeCoreSection)}
-                className="text-[12px] font-medium hover:underline cursor-pointer"
-                style={{ color: '#B99B79' }}
-              >
-                ← Quay lại {activeMeta.code} · {activeMeta.shortLabel}
-              </button>
-            </div>
-
             {state.activeView.key === 'notes' && (
               <ResearchNotesPanel
                 project={activeProject}
@@ -875,7 +892,7 @@ export function PsychologyPipeline() {
                         color: 'var(--os-ivory-faint)',
                       }}
                     >
-                      {activeMeta.phaseLabel}
+                      {t(activeMeta.phaseLabelEn, activeMeta.phaseLabel)}
                     </span>
                   </div>
 
@@ -891,7 +908,7 @@ export function PsychologyPipeline() {
                         border: '1px solid rgba(217, 213, 203, 0.1)',
                       }}
                     >
-                      + Research Note
+                      {t('+ Research Note', '+ Ghi chú')}
                     </button>
 
                     <div
@@ -916,7 +933,7 @@ export function PsychologyPipeline() {
                                 color: current ? stMeta.color : 'var(--os-ivory-faint)',
                               }}
                             >
-                              {stMeta.label}
+                              {t(stMeta.label, stMeta.labelVi)}
                             </button>
                           );
                         }
@@ -930,7 +947,7 @@ export function PsychologyPipeline() {
                       className="px-3.5 py-1.5 rounded-[7px] text-[12px] font-semibold cursor-pointer transition-opacity hover:opacity-90"
                       style={{ backgroundColor: '#B99B79', color: '#101114' }}
                     >
-                      {savingExplicit ? 'Saving...' : 'Save section'}
+                      {savingExplicit ? t('Saving...', 'Đang lưu...') : t('Save section', 'Lưu mục này')}
                     </button>
                   </div>
                 </div>
@@ -938,20 +955,20 @@ export function PsychologyPipeline() {
                 <div className="flex items-end justify-between gap-4 flex-wrap">
                   <div>
                     <h2
-                      className="font-editorial text-[28px] sm:text-[32px] leading-tight"
+                      className="text-[22px] font-semibold leading-tight tracking-[-0.02em]"
                       style={{ color: 'var(--os-ivory-bright)' }}
                     >
-                      {activeMeta.title}
+                      {t(activeMeta.title, activeMeta.titleVi)}
                     </h2>
-                    <p className="text-[13.5px] mt-1" style={{ color: 'var(--os-ivory-muted)' }}>
-                      {activeMeta.subtitle}
+                    <p className="text-[12px] mt-1" style={{ color: 'var(--os-ivory-muted)' }}>
+                      {t(activeMeta.subtitleEn, activeMeta.subtitle)}
                     </p>
                   </div>
 
                   <span className="metadata text-[10.5px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    Tự động lưu lúc {formatTime(autoSavedAt)}
+                    {t('Auto-saved at', 'Tự động lưu lúc')} {formatTime(autoSavedAt)}
                     {activeProject.sectionSavedAt[activeMeta.key]
-                      ? ` · Đã xác nhận lúc ${formatTime(activeProject.sectionSavedAt[activeMeta.key])}`
+                      ? ` · ${t('Confirmed at', 'Đã xác nhận lúc')} ${formatTime(activeProject.sectionSavedAt[activeMeta.key])}`
                       : ''}
                   </span>
                 </div>
@@ -962,7 +979,10 @@ export function PsychologyPipeline() {
                   =============================================================== */}
               {activeMeta.key === 'overview' && (
                 <div className="space-y-5">
-                  <FieldBlock label="Title" hint="Tên gọi rõ ràng cho đề tài hoặc câu hỏi nghiên cứu này.">
+                  <FieldBlock
+                    label={t('Title', 'Tiêu đề')}
+                    hint={t('Clear name for this research topic or question.', 'Tên gọi rõ ràng cho đề tài hoặc câu hỏi nghiên cứu này.')}
+                  >
                     <input
                       type="text"
                       value={activeProject.title}
@@ -975,7 +995,10 @@ export function PsychologyPipeline() {
                   </FieldBlock>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FieldBlock label="Research Status" hint="Trạng thái chung của toàn bộ nghiên cứu.">
+                    <FieldBlock
+                      label={t('Research Status', 'Trạng thái')}
+                      hint={t('Overall status of this study.', 'Trạng thái chung của toàn bộ nghiên cứu.')}
+                    >
                       <select
                         value={activeProject.researchStatus}
                         onChange={(e) =>
@@ -990,13 +1013,16 @@ export function PsychologyPipeline() {
                         className="w-full px-3 py-2.5 rounded-[8px] text-[13px]"
                         style={inputBaseStyle}
                       >
-                        <option value="not_started">Not Started</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
+                        <option value="not_started">{t('Not Started', 'Chưa bắt đầu')}</option>
+                        <option value="in_progress">{t('In Progress', 'Đang làm')}</option>
+                        <option value="completed">{t('Completed', 'Hoàn thành')}</option>
                       </select>
                     </FieldBlock>
 
-                    <FieldBlock label="Date" hint="Ngày khởi tạo hoặc mốc hiện tại.">
+                    <FieldBlock
+                      label={t('Date', 'Ngày')}
+                      hint={t('Start date or current milestone.', 'Ngày khởi tạo hoặc mốc hiện tại.')}
+                    >
                       <input
                         type="date"
                         value={activeProject.date}
@@ -1008,7 +1034,10 @@ export function PsychologyPipeline() {
                       />
                     </FieldBlock>
 
-                    <FieldBlock label="Domain / Field" hint="Lĩnh vực (VD: PERSONAL PSYCHOLOGY).">
+                    <FieldBlock
+                      label={t('Domain / Field', 'Lĩnh vực')}
+                      hint={t('Subject domain (e.g. PERSONAL PSYCHOLOGY).', 'Lĩnh vực (VD: PERSONAL PSYCHOLOGY).')}
+                    >
                       <input
                         type="text"
                         value={activeProject.domain}
@@ -1024,20 +1053,29 @@ export function PsychologyPipeline() {
                     </FieldBlock>
                   </div>
 
-                  <FieldBlock label="Abstract" hint="Tóm tắt ngắn gọn bức tranh toàn cảnh của nghiên cứu này.">
+                  <FieldBlock
+                    label={t('Abstract', 'Tóm tắt')}
+                    hint={t('Brief big-picture summary of this study.', 'Tóm tắt ngắn gọn bức tranh toàn cảnh của nghiên cứu này.')}
+                  >
                     <textarea
                       rows={4}
                       value={activeProject.abstract}
                       onChange={(e) =>
                         updateProject((p) => ({ ...p, abstract: e.target.value }), 'overview')
                       }
-                      placeholder="Nghiên cứu này tập trung tìm hiểu điều gì, vì sao quan trọng và hướng tiếp cận chính là gì..."
+                      placeholder={t(
+                        'What does this study explore, why does it matter, and what is your main approach...',
+                        'Nghiên cứu này tập trung tìm hiểu điều gì, vì sao quan trọng và hướng tiếp cận chính là gì...'
+                      )}
                       className="w-full px-3.5 py-2.5 rounded-[8px] text-[13.5px] leading-relaxed resize-y"
                       style={inputBaseStyle}
                     />
                   </FieldBlock>
 
-                  <FieldBlock label="Tags" hint="Gắn chủ đề để dễ đối chiếu giữa các nghiên cứu.">
+                  <FieldBlock
+                    label={t('Tags', 'Thẻ chủ đề')}
+                    hint={t('Tag topics for cross-study comparison.', 'Gắn chủ đề để dễ đối chiếu giữa các nghiên cứu.')}
+                  >
                     <div className="flex flex-wrap gap-1.5">
                       {Array.from(new Set([...SUGGESTED_RESEARCH_TAGS, ...activeProject.tags])).map(
                         (tag) => {

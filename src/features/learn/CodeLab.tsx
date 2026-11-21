@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { createId, getLocalDateStr } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
 import { scheduleSourceCodeSave } from '../../lib/sourceStore';
-import { Modal, useToast } from '../../components/ui/Primitives';
+import { DirectoryCard, Modal, SectionHeading, useRoomBack, useToast } from '../../components/ui/Primitives';
 import { LessonVisualizeCanvas } from './LessonVisualizeCanvas';
 import { OperatingSystemsLab } from './OperatingSystemsLab';
 import { NetworkingLab } from './NetworkingLab';
@@ -25,25 +25,57 @@ export type LabTrackId = 'code' | 'leetcode' | 'chess' | 'sudoku';
 const CODE_LEARNING_ENV_KEY = 'noetrix_code_learning_env_v1';
 
 function loadCodeLearningState(): CodeLearningEnvState {
+  const defaults = buildInitialCodeLearningState();
   try {
     const raw = localStorage.getItem(CODE_LEARNING_ENV_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<CodeLearningEnvState>;
       if (Array.isArray(parsed.subjects) && Array.isArray(parsed.topics) && parsed.topics.length > 0) {
+        // Merge any newly added starter subjects & lessons while preserving user progress/notes
+        const existingSubjIds = new Set(parsed.subjects.map((s) => s.id));
+        const mergedSubjects = [
+          ...parsed.subjects.map((s) => {
+            const defSubj = defaults.subjects.find((d) => d.id === s.id);
+            return defSubj ? { ...s, subtitle: defSubj.subtitle, focusArea: defSubj.focusArea } : s;
+          }),
+          ...defaults.subjects.filter((d) => !existingSubjIds.has(d.id)),
+        ];
+
+        const existingTopicIds = new Set(parsed.topics.map((t) => t.id));
+        const missingDefaults = defaults.topics.filter((d) => !existingTopicIds.has(d.id));
+        const rawMergedTopics = [...parsed.topics, ...missingDefaults];
+
+        // Keep default syllabus order (01..08) for AI Workflow & Agents while preserving user progress
+        const defaultOrder = new Map(defaults.topics.map((d, idx) => [d.id, idx]));
+        const mergedTopics = rawMergedTopics.sort((a, b) => {
+          const ia = defaultOrder.has(a.id) ? (defaultOrder.get(a.id) as number) : 9999;
+          const ib = defaultOrder.has(b.id) ? (defaultOrder.get(b.id) as number) : 9999;
+          return ia - ib;
+        });
+
+        // Refresh title prefix on top_ai_agents (08.) if previously stored without number
+        const normalizedTopics = mergedTopics.map((tp) => {
+          if (tp.id === 'top_ai_agents') {
+            const defAi8 = defaults.topics.find((d) => d.id === 'top_ai_agents');
+            if (defAi8) return { ...tp, moduleGroup: defAi8.moduleGroup, title: defAi8.title };
+          }
+          return tp;
+        });
+
         return {
           activeLevel: parsed.activeLevel || 'directory',
-          activeSubjectId: parsed.activeSubjectId || parsed.subjects[0]?.id || 'subj_java',
-          activeTopicId: parsed.activeTopicId || parsed.topics[0]?.id || 'top_java_hashmap',
+          activeSubjectId: parsed.activeSubjectId || mergedSubjects[0]?.id || 'subj_java',
+          activeTopicId: parsed.activeTopicId || normalizedTopics[0]?.id || 'top_java_hashmap',
           activeModule: parsed.activeModule || 'theory',
-          subjects: parsed.subjects,
-          topics: parsed.topics,
+          subjects: mergedSubjects,
+          topics: normalizedTopics,
         };
       }
     }
   } catch {
     // ignore corrupt JSON
   }
-  return buildInitialCodeLearningState();
+  return defaults;
 }
 
 function addDaysFromToday(days: number): string {
@@ -229,6 +261,13 @@ export function CodeLab({
   const [pendingOsTopicId, setPendingOsTopicId] = useState<string | null>(null);
   const [env, setEnv] = useState<CodeLearningEnvState>(() => loadCodeLearningState());
 
+  useRoomBack(codeSubArea === 'programming' && env.activeLevel !== 'directory', () => {
+    setEnv((prev) => ({
+      ...prev,
+      activeLevel: prev.activeLevel === 'lesson' ? 'subject' : 'directory',
+    }));
+  });
+
   // Local workspace UI states (lightweight & contextual)
   const [lessonSidebarOpen, setLessonSidebarOpen] = useState(true);
   const [editingTheory, setEditingTheory] = useState(false);
@@ -352,7 +391,7 @@ export function CodeLab({
     e.preventDefault();
     if (!sTitle.trim()) return;
     const id = createId('subj');
-    const code = `SUBJ.${String(env.subjects.length + 1).padStart(2, '0')}`;
+    const code = `SUBJ.${String(env.subjects.length + 3).padStart(2, '0')}`;
     const newSubj: ProgrammingSubject = {
       id,
       code,
@@ -512,99 +551,26 @@ export function CodeLab({
     }
   };
 
-  // ===========================================================================
-  // TOP SWITCHER BAR: PROGRAMMING & AI vs OPERATING SYSTEMS KNOWLEDGE BASE
-  // ===========================================================================
-  const areaSwitcherBar = (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b"
-      style={{ borderColor: 'var(--os-border)' }}
-    >
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setCodeSubArea('programming');
-          }}
-          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors"
-          style={{
-            backgroundColor: codeSubArea === 'programming' ? '#1E2129' : 'transparent',
-            color: codeSubArea === 'programming' ? 'var(--os-ivory-bright)' : 'var(--os-ivory-muted)',
-            border:
-              codeSubArea === 'programming'
-                ? '1px solid rgba(185, 155, 121, 0.45)'
-                : '1px solid rgba(217, 213, 203, 0.1)',
-          }}
-        >
-          {t('Programming', 'Lập trình')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setCodeSubArea('os');
-          }}
-          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors"
-          style={{
-            backgroundColor: codeSubArea === 'os' ? '#1E2129' : 'transparent',
-            color: codeSubArea === 'os' ? 'var(--os-brass)' : 'var(--os-ivory-muted)',
-            border:
-              codeSubArea === 'os'
-                ? '1px solid rgba(185, 155, 121, 0.45)'
-                : '1px solid rgba(217, 213, 203, 0.1)',
-          }}
-        >
-          {t('Operating Systems', 'Hệ điều hành')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setCodeSubArea('networking');
-          }}
-          className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-colors"
-          style={{
-            backgroundColor: codeSubArea === 'networking' ? '#1E2129' : 'transparent',
-            color: codeSubArea === 'networking' ? 'var(--os-dusty-blue)' : 'var(--os-ivory-muted)',
-            border:
-              codeSubArea === 'networking'
-                ? '1px solid rgba(167, 182, 210, 0.45)'
-                : '1px solid rgba(217, 213, 203, 0.1)',
-          }}
-        >
-          {t('Computer Networking', 'Mạng máy tính')}
-        </button>
-      </div>
-    </div>
-  );
-
   if (codeSubArea === 'os') {
     return (
-      <div className="space-y-6">
-        {areaSwitcherBar}
-        <OperatingSystemsLab
-          initialTopicId={pendingOsTopicId}
-          onConsumedInitialTopic={() => setPendingOsTopicId(null)}
-        />
-      </div>
+      <OperatingSystemsLab
+        initialTopicId={pendingOsTopicId}
+        onConsumedInitialTopic={() => setPendingOsTopicId(null)}
+        onExitSubject={() => setCodeSubArea('programming')}
+      />
     );
   }
 
   if (codeSubArea === 'networking') {
     return (
-      <div className="space-y-6">
-        {areaSwitcherBar}
-        <NetworkingLab
-          onJumpToOsTopic={(osTopicId) => {
-            triggerHaptic('selection');
-            setPendingOsTopicId(osTopicId);
-            setCodeSubArea('os');
-          }}
-        />
-      </div>
+      <NetworkingLab
+        onExitSubject={() => setCodeSubArea('programming')}
+        onJumpToOsTopic={(osTopicId) => {
+          triggerHaptic('selection');
+          setPendingOsTopicId(osTopicId);
+          setCodeSubArea('os');
+        }}
+      />
     );
   }
 
@@ -612,229 +578,98 @@ export function CodeLab({
   // RENDER LEVEL 1 & 2: PROGRAMMING DIRECTORY (Overview + Subjects)
   // ===========================================================================
   if (env.activeLevel === 'directory') {
-    const exposedCount = env.topics.filter((tp) => tp.understanding === 'exposed').length;
-    const understoodCount = env.topics.filter((tp) => tp.understanding === 'understood').length;
-    const appliedCount = env.topics.filter((tp) => tp.understanding === 'applied').length;
-    const activeModMeta = LESSON_MODULES.find((m) => m.id === activeTopic.lastStudiedModule) || LESSON_MODULES[0];
-
     return (
       <div className="space-y-6">
-        {areaSwitcherBar}
-
-        {/* TOP STUDY SESSION BANNER — Unified Learning Continuum & Metrics Capsule */}
-        <header
-          aria-label="Resume Last Learning Session"
-          className="rounded-xl border border-[#1f2530] bg-[#11141b]/95 backdrop-blur-md px-5 py-4"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => openLesson(activeTopic)}
-                className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#f0f2f5] hover:bg-white text-[#0d0f14] font-semibold text-[13.5px] transition-all shadow-sm cursor-pointer"
-              >
-                <span>
-                  {t(
-                    `Resume Lesson (${activeModMeta.num} ${activeModMeta.label})`,
-                    `Vào học tiếp (${activeModMeta.num} ${activeModMeta.label})`
-                  )}
-                </span>
-                <span className="text-xs metadata text-[#0d0f14]">↗</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => openLesson(activeTopic, 'explain')}
-                className="inline-flex items-center px-3.5 py-2.5 rounded-lg bg-[#12161f] hover:bg-[#181d28] border border-[#272e3d] hover:border-[#384152] text-[#cbd5e1] hover:text-white font-medium text-[13.5px] transition-colors cursor-pointer"
-              >
-                {t('Self-Explain (03 Explain)', 'Tự giải thích (03 Explain)')}
-              </button>
-            </div>
-          </div>
-        </header>
 
         {/* LEVEL 2: SUBJECTS DIRECTORY (Java, C#, Web Core, AI Workflow, SQL, OS, Networking) */}
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-4 pb-1">
-            <div className="metadata text-[12.5px] tracking-wider text-[#cba86a] uppercase font-semibold">
-              {t('PROGRAMMING SUBJECTS', 'DANH MỤC MÔN HỌC LẬP TRÌNH')}
-            </div>
+            <h2 className="text-[15px] font-semibold text-white">
+              {t('Subjects', 'Môn học')}
+            </h2>
             <button
               type="button"
               onClick={() => setNewSubjectOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#2b3343] hover:border-[#cba86a]/60 bg-[#12161f] hover:bg-[#181d28] text-[#cba86a] hover:text-[#faebd7] metadata text-[12px] uppercase tracking-wider font-semibold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[#2b3343] hover:border-[#cba86a]/60 bg-[#12161f] hover:bg-[#181d28] text-[#cba86a] hover:text-[#faebd7] text-[13px] font-medium transition-all cursor-pointer"
             >
-              <span className="text-base leading-none font-bold">+</span>
-              <span>{t('NEW SUBJECT', 'THÊM MÔN HỌC')}</span>
+              <span className="text-sm leading-none font-semibold">+</span>
+              <span>{t('New subject', 'Thêm môn')}</span>
             </button>
           </div>
 
           <div className="space-y-3">
-            {env.subjects.map((subj) => {
-              const list = env.topics.filter((tp) => tp.subjectId === subj.id);
-              const applied = list.filter((tp) => tp.understanding === 'applied').length;
-              const understood = list.filter((tp) => tp.understanding === 'understood').length;
-              return (
-                <button
-                  key={subj.id}
-                  type="button"
-                  onClick={() => openSubject(subj.id)}
-                  className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1.5 min-w-0">
-                      <div className="flex items-center flex-wrap gap-3">
-                        <span className="metadata text-[12px] font-bold text-[#cba86a] tracking-wider">
-                          {subj.code}
-                        </span>
-                        <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
-                          {subj.title}
-                        </h3>
-                        <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
-                          {list.length} {t('topics', 'chủ đề')}
-                        </span>
-                      </div>
-                      <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
-                        {subj.subtitle}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
-                      <div className="flex items-center gap-3 metadata text-[12.5px]">
-                        {understood > 0 && (
-                          <span className="inline-flex items-center text-[#cba86a] font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-[#cba86a] mr-2" />
-                            {understood} {t('Understood', 'Đã hiểu')}
-                          </span>
-                        )}
-                        {applied > 0 && (
-                          <span className="inline-flex items-center text-emerald-400 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 shadow-[0_0_8px_#34d399]" />
-                            {applied} {t('Applied', 'Thực hành')}
-                          </span>
-                        )}
-                        {understood === 0 && applied === 0 && (
-                          <span className="inline-flex items-center text-[#9ca3af] font-medium">
-                            <span className="w-2 h-2 rounded-full bg-[#64748b] mr-2" />
-                            {t('Exposed only', 'Mới tiếp xúc')}
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#cba86a] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
-                        <span>{t('Open Subject', 'Mở môn học')}</span>
-                        <span className="group-hover:translate-x-1 transition-transform">→</span>
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-
-            {/* Dedicated Entry: Operating Systems Knowledge Base */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('selection');
-                setCodeSubArea('os');
-              }}
-              className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center flex-wrap gap-3">
-                    <span className="metadata text-[12px] font-bold text-emerald-400 tracking-wider">
-                      CS.OS
-                    </span>
-                    <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
-                      {t('Operating Systems — Knowledge Base', 'Hệ điều hành — Knowledge Base')}
-                    </h3>
-                    <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
-                      {t('12 modules · 60+ topics', '12 chương · 60+ chủ đề')}
-                    </span>
-                  </div>
-                  <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
-                    Kernel, Process, Threads, Scheduling, Synchronization, Memory, File Systems, I/O, Storage, Security &amp; Virtualization.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
-                  <span className="metadata text-[12px] text-[#a7b6d2]">Knowledge Graph · Flashcards</span>
-                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#cba86a] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
-                    <span>{t('Open OS KB', 'Mở kho OS')}</span>
-                    <span className="group-hover:translate-x-1 transition-transform">→</span>
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            {/* Dedicated Entry: Computer Networking Knowledge Base */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('selection');
-                setCodeSubArea('networking');
-              }}
-              className="group relative w-full bg-[#12151c] hover:bg-[#161a23] border border-[#222834] hover:border-[#384152] rounded-xl px-6 py-5 transition-all duration-200 glow-gold-hover text-left cursor-pointer"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center flex-wrap gap-3">
-                    <span className="metadata text-[12px] font-bold text-[#a7b6d2] tracking-wider">
-                      CS.NET
-                    </span>
-                    <h3 className="text-[20px] font-bold text-white tracking-tight group-hover:text-[#f3f4f6]">
-                      {t('Computer Networking — Knowledge Base', 'Mạng máy tính — Knowledge Base')}
-                    </h3>
-                    <span className="metadata text-[11.5px] text-[#9ca3af] bg-[#1a1f29] px-2.5 py-0.5 rounded-full border border-[#262e3d]">
-                      {t('14 modules · 70+ topics', '14 chương · 70+ chủ đề')}
-                    </span>
-                  </div>
-                  <p className="text-[14px] text-[#9ca3af] group-hover:text-[#cbd5e1] transition-colors">
-                    OSI/TCP-IP, Subnetting, Routing, TCP/UDP/QUIC, DNS, HTTP/3, Security, Sockets, Cloud VPC &amp; Kubernetes Networking.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between lg:justify-end gap-5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#1f2532]">
-                  <span className="metadata text-[12px] text-emerald-400">Packet Lab · Topology Sim</span>
-                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a202c] group-hover:bg-[#a7b6d2] text-[#faebd7] group-hover:text-[#0c0f13] border border-[#2e3747] group-hover:border-transparent font-medium text-[13.5px] transition-all">
-                    <span>{t('Open Network KB', 'Mở kho Mạng')}</span>
-                    <span className="group-hover:translate-x-1 transition-transform">→</span>
-                  </span>
-                </div>
-              </div>
-            </button>
+            {[
+              ...env.subjects.map((subj) => {
+                const list = env.topics.filter((tp) => tp.subjectId === subj.id);
+                return {
+                  id: subj.id,
+                  code: subj.code,
+                  title: subj.title,
+                  subtitle: subj.subtitle,
+                  understood: list.filter((tp) => tp.understanding === 'understood').length,
+                  applied: list.filter((tp) => tp.understanding === 'applied').length,
+                  onOpen: () => openSubject(subj.id),
+                };
+              }),
+              {
+                id: 'subj_os',
+                code: 'SUBJ.06',
+                title: t('Operating Systems', 'Hệ điều hành'),
+                subtitle: 'Kernel & Processes · Scheduling · Memory · File Systems · Virtualization',
+                understood: 0,
+                applied: 0,
+                onOpen: () => {
+                  triggerHaptic('selection');
+                  setCodeSubArea('os');
+                },
+              },
+              {
+                id: 'subj_net',
+                code: 'SUBJ.07',
+                title: t('Computer Networking', 'Mạng máy tính'),
+                subtitle: 'OSI & TCP/IP · Routing · TCP/UDP/QUIC · DNS & HTTP/3 · Cloud VPC',
+                understood: 0,
+                applied: 0,
+                onOpen: () => {
+                  triggerHaptic('selection');
+                  setCodeSubArea('networking');
+                },
+              },
+            ].map((item) => (
+              <DirectoryCard
+                key={item.id}
+                code={item.code}
+                title={item.title}
+                subtitle={item.subtitle}
+                onClick={item.onOpen}
+                statuses={[
+                  ...(item.understood > 0
+                    ? [{ label: `${item.understood} ${t('Understood', 'Đã hiểu')}`, tone: 'gold' as const }]
+                    : []),
+                  ...(item.applied > 0
+                    ? [{ label: `${item.applied} ${t('Applied', 'Thực hành')}`, tone: 'emerald' as const }]
+                    : []),
+                ]}
+              />
+            ))}
           </div>
         </section>
 
-        {/* BOTTOM QUEUE INDICATORS & INTERACTIVE DRAWER */}
-        <footer className="pt-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* SMART VISIBILITY: Only show Review Queue when topics are actually due */}
+        {dueReviewTopics.length > 0 && (
+          <footer className="pt-4 space-y-3">
             <div className="flex items-center justify-between p-4 rounded-xl bg-[#0f1218] border border-[#1e2430]">
               <div className="flex items-center gap-3">
                 <span className="w-2 h-2 rounded-full bg-[#cba86a]" />
-                <span className="metadata text-[12px] tracking-wider text-[#cbd5e1] uppercase font-semibold">
-                  {t('REVIEW & RETRIEVAL QUEUE', 'HÀNG ĐỢI ÔN TẬP & TRUY XUẤT')}
+                <span className="text-[13px] text-[#e2e8f0] font-semibold">
+                  {t('Review queue', 'Hàng đợi ôn tập')}
                 </span>
               </div>
-              <span className="metadata text-[12px] text-[#9ca3af] bg-[#1a1f2a] px-3 py-1 rounded-md border border-[#262f3f]">
+              <span className="text-[12px] font-medium text-[#cba86a] bg-[#1a1f2a] px-3 py-1 rounded-md border border-[#262f3f]">
                 {dueReviewTopics.length} {t('due', 'đến hạn')}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl bg-[#0f1218] border border-[#1e2430]">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="metadata text-[12px] tracking-wider text-[#cbd5e1] uppercase font-semibold">
-                  {t('PARALLEL DISCIPLINES', 'CHUYÊN ĐỀ SONG SONG')}
-                </span>
-              </div>
-              <span className="metadata text-[12px] text-[#9ca3af] bg-[#1a1f2a] px-3 py-1 rounded-md border border-[#262f3f]">
-                {t('3 active', '3 đang chạy')}
-              </span>
-            </div>
-          </div>
-
-          {dueReviewTopics.length > 0 && (
             <div className="rounded-xl bg-[#0f1218] border border-[#1e2430] divide-y divide-[#1b2029]">
               {dueReviewTopics.slice(0, 4).map((topic) => (
                 <button
@@ -853,8 +688,8 @@ export function CodeLab({
                 </button>
               ))}
             </div>
-          )}
-        </footer>
+          </footer>
+        )}
 
         {/* MODAL: NEW SUBJECT */}
         <Modal open={newSubjectOpen} onClose={() => setNewSubjectOpen(false)} title={t('Create Programming Subject', 'Tạo Môn Học Lập Trình')}>
@@ -898,38 +733,24 @@ export function CodeLab({
     });
 
     return (
-      <div className="space-y-8">
-        {/* Breadcrumb Bar */}
+      <div className="space-y-6">
+        {/* Clean Top Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
-          <div className="flex items-center gap-2 metadata text-[11px] uppercase tracking-[0.1em]">
-            <button
-              type="button"
-              onClick={() => setEnv((prev) => ({ ...prev, activeLevel: 'directory' }))}
-              className="hover:underline cursor-pointer"
-              style={{ color: 'var(--os-ivory-muted)' }}
-            >
-              ← Programming
-            </button>
-            <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-            <span style={{ color: 'var(--os-brass)' }}>{activeSubject.title}</span>
+          <div className="min-w-0">
+            <span className="block text-[11px] font-medium" style={{ color: activeSubject.accent }}>
+              {activeSubject.code}
+            </span>
+            <h2 className="editorial-h1 truncate">{activeSubject.title}</h2>
           </div>
 
           <button
             type="button"
             onClick={() => setNewTopicOpen(true)}
-            className="px-3.5 py-1.5 rounded-[8px] text-[12px] font-semibold cursor-pointer"
+            className="px-4 py-2 rounded-[10px] text-[13px] font-semibold cursor-pointer shrink-0"
             style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
           >
             + New Topic Lesson
           </button>
-        </div>
-
-        {/* Subject Header */}
-        <div className="space-y-1">
-          <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: activeSubject.accent }}>
-            {activeSubject.code}
-          </span>
-          <h2 className="editorial-h1">{activeSubject.title}</h2>
         </div>
 
         {/* Curriculum List grouped by Module */}
@@ -1079,38 +900,20 @@ export function CodeLab({
           borderBottom: '1px solid var(--os-border)',
         }}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
             onClick={() => setLessonSidebarOpen((o) => !o)}
             title="Ẩn/Hiện danh sách bài học"
-            className="w-7 h-7 rounded-[6px] flex items-center justify-center cursor-pointer hover:bg-white/5"
+            className="w-7 h-7 rounded-[6px] flex items-center justify-center cursor-pointer hover:bg-white/5 shrink-0"
             style={{ color: 'var(--os-ivory-muted)', border: '1px solid var(--os-border)' }}
           >
             ◧
           </button>
 
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 metadata text-[10.5px] flex-wrap">
-            <button
-              type="button"
-              onClick={() => setEnv((p) => ({ ...p, activeLevel: 'directory' }))}
-              className="hover:underline cursor-pointer"
-              style={{ color: 'var(--os-ivory-faint)' }}
-            >
-              PROGRAMMING
-            </button>
-            <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-            <button
-              type="button"
-              onClick={() => setEnv((p) => ({ ...p, activeLevel: 'subject' }))}
-              className="hover:underline cursor-pointer"
-              style={{ color: 'var(--os-ivory-muted)' }}
-            >
-              {activeSubject.title.toUpperCase()}
-            </button>
-            <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-            <span style={{ color: 'var(--os-brass)' }}>{activeTopic.title}</span>
-          </nav>
+          <span className="text-[14px] font-semibold text-[#EDEAE2] truncate">
+            {activeTopic.title}
+          </span>
         </div>
 
         {/* Honest 3-State Mastery Calibration (Exposed -> Understood -> Applied) */}
@@ -1250,7 +1053,7 @@ export function CodeLab({
                 <div className="flex items-start justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
                   <div className="space-y-1.5">
                     <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                      01 // THEORY · {activeTopic.moduleGroup.toUpperCase()}
+                      {t('Theory', 'Lý thuyết')} · {activeTopic.moduleGroup}
                     </span>
                     <h2 className="font-editorial-vi text-[26px] sm:text-[30px] leading-tight" style={{ color: 'var(--os-ivory-bright)' }}>
                       {activeTopic.title}
@@ -1346,81 +1149,95 @@ export function CodeLab({
                       </div>
                     </div>
 
-                    {/* Internal Mechanism */}
-                    <div className="space-y-3 pt-4 border-t border-[var(--os-border)]">
-                      <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
-                        Internal Mechanism · Cơ chế bên trong
-                      </span>
-                      <div className="space-y-2.5 pl-3 border-l border-[var(--os-border)]">
-                        {activeTopic.theory.internalMechanism.map((step, i) => (
-                          <p key={i} className="text-[13.5px] leading-[1.68]" style={{ color: 'var(--os-ivory)' }}>
-                            {step}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Trade-offs */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[var(--os-border)]">
-                      <div className="space-y-1.5">
-                        <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-sage)' }}>
-                          Advantages · Ưu điểm
-                        </span>
-                        <ul className="space-y-1 text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                          {activeTopic.theory.tradeOffs.pros.map((p, i) => (
-                            <li key={i}>+ {p}</li>
+                    {/* Progressive Disclosure: Deep Dive Collapsible Sections */}
+                    {activeTopic.theory.internalMechanism.length > 0 && (
+                      <details className="group pt-3 border-t border-[var(--os-border)]">
+                        <summary className="metadata text-[10.5px] uppercase tracking-[0.12em] cursor-pointer select-none flex items-center justify-between py-1 list-none" style={{ color: 'var(--os-brass)' }}>
+                          <span>Internal Mechanism · Cơ chế bên trong ({activeTopic.theory.internalMechanism.length})</span>
+                          <span className="text-[#6b7280] group-open:rotate-90 transition-transform">▸</span>
+                        </summary>
+                        <div className="space-y-2.5 pl-3 mt-3 border-l border-[var(--os-border)]">
+                          {activeTopic.theory.internalMechanism.map((step, i) => (
+                            <p key={i} className="text-[13.5px] leading-[1.68]" style={{ color: 'var(--os-ivory)' }}>
+                              {step}
+                            </p>
                           ))}
-                        </ul>
-                      </div>
-                      <div className="space-y-1.5">
-                        <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-crimson)' }}>
-                          Trade-offs · Hạn chế
-                        </span>
-                        <ul className="space-y-1 text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                          {activeTopic.theory.tradeOffs.cons.map((c, i) => (
-                            <li key={i}>− {c}</li>
+                        </div>
+                      </details>
+                    )}
+
+                    {(activeTopic.theory.tradeOffs.pros.length > 0 || activeTopic.theory.tradeOffs.cons.length > 0) && (
+                      <details className="group pt-3 border-t border-[var(--os-border)]">
+                        <summary className="metadata text-[10.5px] uppercase tracking-[0.12em] cursor-pointer select-none flex items-center justify-between py-1 list-none" style={{ color: 'var(--os-sage)' }}>
+                          <span>Trade-offs · Ưu &amp; Hạn chế</span>
+                          <span className="text-[#6b7280] group-open:rotate-90 transition-transform">▸</span>
+                        </summary>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                          <div className="space-y-1.5">
+                            <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-sage)' }}>
+                              Advantages · Ưu điểm
+                            </span>
+                            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
+                              {activeTopic.theory.tradeOffs.pros.map((p, i) => (
+                                <li key={i}>+ {p}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="space-y-1.5">
+                            <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-crimson)' }}>
+                              Trade-offs · Hạn chế
+                            </span>
+                            <ul className="space-y-1 text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
+                              {activeTopic.theory.tradeOffs.cons.map((c, i) => (
+                                <li key={i}>− {c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </details>
+                    )}
+
+                    {activeTopic.theory.misconceptions.length > 0 && (
+                      <details className="group pt-3 border-t border-[var(--os-border)]">
+                        <summary className="metadata text-[10.5px] uppercase tracking-[0.12em] cursor-pointer select-none flex items-center justify-between py-1 list-none" style={{ color: 'var(--os-crimson)' }}>
+                          <span>Common Misconceptions · Hiểu lầm cần tránh ({activeTopic.theory.misconceptions.length})</span>
+                          <span className="text-[#6b7280] group-open:rotate-90 transition-transform">▸</span>
+                        </summary>
+                        <div className="space-y-2 mt-3">
+                          {activeTopic.theory.misconceptions.map((m, i) => (
+                            <p
+                              key={i}
+                              className="text-[13px] leading-relaxed p-3 rounded-[8px]"
+                              style={{ backgroundColor: '#15171C', border: '1px solid var(--os-border)', color: 'var(--os-ivory)' }}
+                            >
+                              {m}
+                            </p>
                           ))}
-                        </ul>
-                      </div>
-                    </div>
+                        </div>
+                      </details>
+                    )}
 
-                    {/* Common Misconceptions */}
-                    <div className="space-y-2 pt-4 border-t border-[var(--os-border)]">
-                      <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-crimson)' }}>
-                        Common Misconceptions · Hiểu lầm cần tránh
-                      </span>
-                      <div className="space-y-2">
-                        {activeTopic.theory.misconceptions.map((m, i) => (
-                          <p
-                            key={i}
-                            className="text-[13px] leading-relaxed p-3 rounded-[8px]"
-                            style={{ backgroundColor: '#15171C', border: '1px solid var(--os-border)', color: 'var(--os-ivory)' }}
-                          >
-                            {m}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* References */}
                     {activeTopic.theory.references.length > 0 && (
-                      <div className="pt-3 flex flex-wrap items-center gap-3">
-                        <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-ivory-faint)' }}>
-                          References:
-                        </span>
-                        {activeTopic.theory.references.map((ref, i) => (
-                          <a
-                            key={i}
-                            href={ref.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="metadata text-[11px] hover:underline"
-                            style={{ color: 'var(--os-dusty-blue)' }}
-                          >
-                            {ref.label} ↗
-                          </a>
-                        ))}
-                      </div>
+                      <details className="group pt-3 border-t border-[var(--os-border)]">
+                        <summary className="metadata text-[10.5px] uppercase tracking-[0.12em] cursor-pointer select-none flex items-center justify-between py-1 list-none" style={{ color: 'var(--os-ivory-faint)' }}>
+                          <span>References · Tài liệu tham khảo ({activeTopic.theory.references.length})</span>
+                          <span className="text-[#6b7280] group-open:rotate-90 transition-transform">▸</span>
+                        </summary>
+                        <div className="pt-2 flex flex-wrap items-center gap-3">
+                          {activeTopic.theory.references.map((ref, i) => (
+                            <a
+                              key={i}
+                              href={ref.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="metadata text-[11px] hover:underline"
+                              style={{ color: 'var(--os-dusty-blue)' }}
+                            >
+                              {ref.label} ↗
+                            </a>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </div>
                 )}
@@ -1456,17 +1273,14 @@ export function CodeLab({
                   </pre>
                 </div>
 
-                {/* Next Meaningful Learning Loop CTA */}
+                {/* Next Step in Learning Cycle */}
                 <div
-                  className="p-4 rounded-[12px] space-y-3"
+                  className="p-4 rounded-[12px] space-y-2.5"
                   style={{ backgroundColor: '#15171C', border: '1px solid var(--os-border)' }}
                 >
                   <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-ivory-faint)' }}>
-                    NEXT IN LEARNING CYCLE
+                    {t('NEXT STEP', 'BƯỚC TIẾP THEO')}
                   </span>
-                  <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-                    Đọc xong lý thuyết chỉ mới ở mức <strong>Exposed</strong>. Để thật sự hiểu, hãy đóng tài liệu lại và thử tự giải thích bằng lời hoặc viết code thử nghiệm.
-                  </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1474,7 +1288,7 @@ export function CodeLab({
                       className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium cursor-pointer"
                       style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
                     >
-                      03 Explain (Self-Test) →
+                      {t('Explain (Self-Test) →', 'Tự giải thích →')}
                     </button>
                     <button
                       type="button"
@@ -1482,7 +1296,7 @@ export function CodeLab({
                       className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium cursor-pointer"
                       style={{ backgroundColor: '#1E2027', color: 'var(--os-ivory)', border: '1px solid var(--os-border)' }}
                     >
-                      05 Practice Code
+                      {t('Practice Code', 'Thực hành Code')}
                     </button>
                   </div>
                 </div>
@@ -1497,9 +1311,7 @@ export function CodeLab({
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--os-border)]">
                 <div>
-                  <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    02 // NOTES · MARKDOWN KNOWLEDGE WORKSPACE
-                  </span>
+                  <SectionHeading code="02" title="NOTES · MARKDOWN KNOWLEDGE WORKSPACE" />
                   <p className="text-[12.5px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
                     Không chép lại Theory. Hãy tóm tắt bằng ngôn ngữ của bạn, lưu code snippet, bảng so sánh & lỗi hay gặp.
                   </p>
@@ -1617,9 +1429,7 @@ export function CodeLab({
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
                 <div>
-                  <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    03 // EXPLAIN FROM MEMORY · FEYNMAN RETRIEVAL
-                  </span>
+                  <SectionHeading code="03" title="EXPLAIN FROM MEMORY · FEYNMAN RETRIEVAL" />
                   <h3 className="font-editorial text-[22px] mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
                     Tự diễn giải lại {activeTopic.title}
                   </h3>
@@ -1783,9 +1593,7 @@ export function CodeLab({
           {env.activeModule === 'visualize' && (
             <div className="space-y-4">
               <div>
-                <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                  04 // VISUALIZE MECHANISM · BẢNG VẼ TƯ DUY
-                </span>
+                <SectionHeading code="04" title="VISUALIZE MECHANISM · BẢNG VẼ TƯ DUY" />
                 <p className="text-[13px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
                   Tự vẽ lại sơ đồ bộ nhớ (Stack/Heap), cấu trúc dữ liệu (Buckets/Nodes) hoặc luồng xử lý của <strong>{activeTopic.title}</strong>.
                 </p>
@@ -2012,9 +1820,7 @@ export function CodeLab({
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
                 <div>
-                  <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    06 // EXPERIMENT LAB · HYPOTHESIS-DRIVEN LEARNING
-                  </span>
+                  <SectionHeading code="06" title="EXPERIMENT LAB · HYPOTHESIS-DRIVEN LEARNING" />
                   <p className="text-[13px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
                     Practice là giải bài tập. Experiment là tự đặt giả thuyết &quot;Nếu làm thế này thì sao?&quot; rồi kiểm chứng thực tế.
                   </p>
@@ -2134,9 +1940,7 @@ export function CodeLab({
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
                 <div>
-                  <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    07 // ASSESSMENT · PREDICT THE OUTPUT & CONCEPT CHECKS
-                  </span>
+                  <SectionHeading code="07" title="ASSESSMENT · PREDICT THE OUTPUT & CONCEPT CHECKS" />
                   <p className="text-[13px] mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
                     Đọc code và tự dự đoán kết quả TRƯỚC khi mở đáp án để kiểm tra năng lực suy luận thật sự.
                   </p>
@@ -2273,9 +2077,7 @@ export function CodeLab({
           {env.activeModule === 'review' && (
             <div className="space-y-6">
               <div className="pb-4 border-b border-[var(--os-border)]">
-                <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                  08 // REVIEW & SPACED REPETITION
-                </span>
+                <SectionHeading code="08" title="REVIEW & SPACED REPETITION" />
                 <h3 className="font-editorial text-[22px] mt-1" style={{ color: 'var(--os-ivory-bright)' }}>
                   Củng cố & Kết nối {activeTopic.title}
                 </h3>

@@ -4,7 +4,7 @@ import { db, createId, getLocalDateStr, formatShortDate } from '../../db/databas
 import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
 import type { SudokuRun, SudokuTechnique } from '../../types';
-import { Modal, useToast } from '../../components/ui/Primitives';
+import { DirectoryCard, Modal, useRoomBack, useToast } from '../../components/ui/Primitives';
 import { SudokuTechniqueIllustration } from './SudokuDiagram';
 
 type SudokuSection = 'overview' | 'path' | 'lesson' | 'practice' | 'journal' | 'library';
@@ -400,6 +400,10 @@ export function SudokuLab() {
     }
   }, [section]);
 
+  useRoomBack(section !== 'overview', () =>
+    setSection((prev) => (prev === 'lesson' ? 'path' : 'overview'))
+  );
+
   const sortedTechniques = useMemo(() => {
     return [...techniques].sort((a, b) => extractTechNum(a.name) - extractTechNum(b.name));
   }, [techniques]);
@@ -438,21 +442,8 @@ export function SudokuLab() {
     showToast(g === 0 ? 'Đã lưu ván Sudoku 0% đoán mò!' : 'Đã lưu ván Sudoku vào Run Journal');
   };
 
-  const renderBreadcrumb = (title: string) => (
+  const renderBreadcrumb = (_title: string) => (
     <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-[var(--os-border)]">
-      <div className="flex items-center gap-2 metadata text-[10.5px] uppercase tracking-[0.12em]">
-        <button
-          type="button"
-          onClick={() => setSection('overview')}
-          className="hover:underline cursor-pointer"
-          style={{ color: 'var(--os-ivory-muted)' }}
-        >
-          ← SUDOKU LAB
-        </button>
-        <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-        <span style={{ color: 'var(--os-brass)' }}>{title}</span>
-      </div>
-
       <div className="flex items-center gap-1.5 flex-wrap">
         {(
           [
@@ -481,118 +472,74 @@ export function SudokuLab() {
   );
 
   // =========================================================================
-  // 1. SUDOKU OVERVIEW
+  // 1. SUDOKU OVERVIEW (Clean Stages Directory matching The Lab)
   // =========================================================================
   if (section === 'overview') {
     return (
-      <div className="space-y-9">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--os-border)]">
-          <div className="space-y-1">
-            <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-dusty-blue)' }}>
-              {t('SUDOKU · FROM LOGIC TO MASTERY', 'SUDOKU · TỪ LOGIC ĐẾN TINH THÔNG')}
-            </span>
-            <h2 className="editorial-h2">{t('Prove before you place.', 'Chứng minh trước khi đặt số.')}</h2>
-            <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              {t(
-                'Guessing undermines pure deduction. Every placement must be provable by logic.',
-                'Đoán mò phá hủy mục tiêu rèn tư duy. Mọi nước đi đều phải chứng minh được bằng logic.'
-              )}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-6 shrink-0">
-            <div>
-              <p className="font-editorial text-[24px] leading-none tabular-nums" style={{ color: 'var(--os-ivory-bright)' }}>
-                {masteredCount} <span className="text-[14px]" style={{ color: 'var(--os-ivory-faint)' }}>/ {sortedTechniques.length}</span>
-              </p>
-              <p className="metadata text-[9.5px] uppercase mt-1" style={{ color: 'var(--os-ivory-faint)' }}>
-                {t('Techniques Mastered', 'Kỹ thuật thành thạo')}
-              </p>
-            </div>
-            <div className="h-7 w-[1px] bg-[var(--os-border)]" />
-            <div>
-              <p className="font-editorial text-[16px] leading-none" style={{ color: runs.length > 0 ? 'var(--os-sage)' : 'var(--os-ivory-muted)' }}>
-                {runs.length > 0 ? t(`${runs.length} Runs Logged`, `${runs.length} Ván đã ghi`) : t('No runs recorded', 'Chưa ghi ván nào')}
-              </p>
-              <p className="metadata text-[9.5px] uppercase mt-1.5" style={{ color: 'var(--os-ivory-faint)' }}>
-                {t('Run Journal', 'Nhật ký giải')}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* CURRENT TECHNIQUE SPOTLIGHT */}
-        {activeTech && (
-          <section
-            className="p-6 sm:p-7 rounded-[14px] space-y-4"
-            style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                {t('● CURRENT TECHNIQUE · RESUME STUDY', '● KỸ THUẬT HIỆN TẠI · HỌC TIẾP')}
-              </span>
-              <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-ivory-faint)' }}>
-                {activeTech.difficultyRange || activeTech.tier}
-              </span>
-            </div>
-            <h3 className="font-editorial-vi text-[24px]" style={{ color: 'var(--os-ivory-bright)' }}>
-              {formatArrows(activeTech.name)}
-            </h3>
-            <p className="text-[14px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-              {formatArrows(activeTech.summary)}
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTechId(activeTech.id);
-                  setSection('lesson');
+      <div className="space-y-4">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap pb-1">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-[15px] font-semibold text-white">
+                {t('Stages', 'Lộ trình Sudoku')}
+              </h2>
+              <span
+                className="text-[11px] font-medium px-2.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: 'rgba(155, 170, 152, 0.12)',
+                  color: '#9BAA98',
+                  border: '1px solid rgba(155, 170, 152, 0.25)',
                 }}
-                className="px-4 py-2 rounded-[9px] text-[13px] font-medium cursor-pointer"
-                style={{ backgroundColor: 'var(--os-ivory-bright)', color: 'var(--os-obsidian)' }}
               >
-                {t('Open Technique Workspace →', 'Mở Không gian Kỹ thuật →')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSection('practice')}
-                className="px-3.5 py-2 rounded-[9px] text-[12.5px] font-medium cursor-pointer"
-                style={{ backgroundColor: '#101114', color: 'var(--os-ivory)', border: '1px solid var(--os-border)' }}
-              >
-                Open 9×9 Practice Board ↗
-              </button>
+                {masteredCount}/{sortedTechniques.length} ✓
+              </span>
             </div>
-          </section>
-        )}
 
-        {/* 4 CLEAN DESTINATIONS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-y divide-y sm:divide-y-0 sm:divide-x divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
-          {(
-            [
-              { id: 'path', num: '01', title: 'Skill Curriculum', sub: '28 kỹ thuật từ Scanning tới AIC & Forcing Chains.', cta: `${sortedTechniques.length} techniques` },
-              { id: 'practice', num: '02', title: 'Practice Board', sub: 'Bảng 9×9 tương tác có Pencil Notes & Prove Hint.', cta: 'Playable 9×9' },
-              { id: 'journal', num: '03', title: 'Run Journal', sub: 'Ghi nhận điểm bị mắc & đo tỷ lệ 0% đoán mò.', cta: runs.length > 0 ? `${runs.length} runs` : 'Ready' },
-              { id: 'library', num: '04', title: 'Sudoku Library', sub: 'The Art of Sudoku, HoDoKu, Sudoku Coach, CTC.', cta: '4 resources' },
-            ] as const
-          ).map((d, idx) => (
-            <button
-              key={d.id}
-              type="button"
-              onClick={() => setSection(d.id)}
-              className={`py-5 ${idx === 0 ? 'sm:pr-5' : idx === 3 ? 'sm:pl-5' : 'sm:px-5'} text-left flex flex-col justify-between gap-4 hover:bg-[rgba(217,213,203,0.025)] cursor-pointer group`}
-            >
-              <div className="space-y-1.5">
-                <div className="flex justify-between metadata text-[10px]">
-                  <span style={{ color: 'var(--os-dusty-blue)' }}>{d.num}</span>
-                  <span style={{ color: 'var(--os-ivory-faint)' }}>{d.cta}</span>
-                </div>
-                <h3 className="editorial-h3 group-hover:text-white">{d.title}</h3>
-                <p className="text-[12.5px]" style={{ color: 'var(--os-ivory-muted)' }}>{d.sub}</p>
-              </div>
-              <span className="metadata text-[11px]" style={{ color: 'var(--os-brass)' }}>Enter →</span>
-            </button>
-          ))}
-        </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(
+                [
+                  ['practice', t('9×9 Board', 'Bảng 9×9')],
+                  ['journal', t('Journal', 'Nhật ký')],
+                  ['library', t('Library', 'Tài liệu')],
+                ] as const
+              ).map(([sec, lbl]) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => setSection(sec)}
+                  className="px-3 py-1.5 rounded-lg border border-[#222834] hover:border-[#384152] bg-[#12151c] text-[#9ca3af] hover:text-white text-[12px] font-medium transition-all cursor-pointer"
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {CURRICULUM_STAGES.map((st) => {
+              const items = sortedTechniques.filter((tk) => tk.tier === st.tier);
+              const done = items.filter((tk) => tk.mastery === 'mastered').length;
+              return (
+                <DirectoryCard
+                  key={st.tier}
+                  code={`STAGE.${st.code}`}
+                  title={st.title}
+                  subtitle={st.goal}
+                  statuses={[
+                    { label: `${items.length} ${t('techniques', 'kỹ thuật')}`, tone: 'muted' },
+                    ...(done > 0
+                      ? [{ label: `${done} ${t('Mastered', 'Thành thạo')}`, tone: 'emerald' as const }]
+                      : []),
+                  ]}
+                  onClick={() => {
+                    setActiveTier(st.tier);
+                    setSection('path');
+                  }}
+                />
+              );
+            })}
+          </div>
+        </section>
       </div>
     );
   }
@@ -601,76 +548,82 @@ export function SudokuLab() {
   // 2. CURRICULUM STAGES -> ORDERED TECHNIQUES
   // =========================================================================
   if (section === 'path') {
-    const tierTechs = sortedTechniques.filter((t) => t.tier === activeTier);
+    const currentStage = CURRICULUM_STAGES.find((st) => st.tier === activeTier) || CURRICULUM_STAGES[0];
+    const tierTechs = sortedTechniques.filter((tk) => tk.tier === activeTier);
     return (
-      <div className="space-y-8">
-        {renderBreadcrumb('CURRICULUM')}
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--os-border)]">
+          <div>
+            <span className="block text-[11px] font-medium text-[#cba86a]">
+              STAGE.{currentStage.code} · {currentStage.range}
+            </span>
+            <h2 className="text-[17px] font-semibold text-white">{currentStage.title}</h2>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {CURRICULUM_STAGES.map((st) => {
-            const items = sortedTechniques.filter((t) => t.tier === st.tier);
-            const done = items.filter((t) => t.mastery === 'mastered').length;
-            const active = activeTier === st.tier;
-            return (
-              <button
-                key={st.tier}
-                type="button"
-                onClick={() => setActiveTier(st.tier)}
-                className="p-4 rounded-[12px] text-left space-y-2 cursor-pointer"
-                style={{
-                  backgroundColor: active ? 'var(--os-stone)' : 'var(--os-graphite)',
-                  border: active ? '1px solid rgba(185,155,121,0.55)' : '1px solid var(--os-border)',
-                }}
-              >
-                <div className="flex justify-between metadata text-[10px]">
-                  <span style={{ color: 'var(--os-brass)' }}>STAGE {st.code}</span>
-                  <span style={{ color: 'var(--os-ivory-faint)' }}>{done}/{items.length}</span>
-                </div>
-                <h3 className="editorial-h3">{st.title}</h3>
-                <p className="text-[12px]" style={{ color: 'var(--os-ivory-muted)' }}>{st.goal}</p>
-              </button>
-            );
-          })}
+          <div className="flex items-center gap-1.5">
+            {CURRICULUM_STAGES.map((st) => {
+              const active = activeTier === st.tier;
+              return (
+                <button
+                  key={st.tier}
+                  type="button"
+                  onClick={() => setActiveTier(st.tier)}
+                  className="px-2.5 py-1 rounded-lg text-[12px] font-medium cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: active ? '#1e2430' : 'transparent',
+                    color: active ? '#cba86a' : '#8b95a7',
+                    border: active ? '1px solid rgba(203,168,106,0.45)' : '1px solid transparent',
+                  }}
+                >
+                  {st.code}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+        <p className="text-[13px] text-[#9ca3af]">{currentStage.goal}</p>
+
         <div className="divide-y divide-[var(--os-border)] border-y border-[var(--os-border)]">
-          {tierTechs.map((t) => {
+          {tierTechs.map((tk) => {
             const col =
-              t.mastery === 'mastered'
+              tk.mastery === 'mastered'
                 ? 'var(--os-sage)'
-                : t.mastery === 'practicing'
+                : tk.mastery === 'practicing'
                 ? 'var(--os-brass)'
                 : 'var(--os-ivory-faint)';
             return (
               <div
-                key={t.id}
+                key={tk.id}
                 onClick={() => {
-                  setActiveTechId(t.id);
+                  setActiveTechId(tk.id);
                   setSection('lesson');
                 }}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    setActiveTechId(t.id);
+                    setActiveTechId(tk.id);
                     setSection('lesson');
                   }
                 }}
                 className="py-4 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-[rgba(217,213,203,0.025)] group"
               >
-                <div className="space-y-1">
-                  <h4 className="text-[15px] font-medium group-hover:text-white" style={{ color: 'var(--os-ivory-bright)' }}>
-                    {formatArrows(t.name)}
+                <div className="min-w-0 space-y-1">
+                  <h4 className="text-[15px] font-semibold group-hover:text-white" style={{ color: 'var(--os-ivory-bright)' }}>
+                    {formatArrows(tk.name)}
                   </h4>
-                  <p className="text-[12.5px] line-clamp-1" style={{ color: 'var(--os-ivory-muted)' }}>
-                    {formatArrows(t.summary)}
+                  <p className="text-[12px] line-clamp-1" style={{ color: 'var(--os-ivory-muted)' }}>
+                    {formatArrows(tk.summary)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="metadata text-[10px] uppercase px-2 py-0.5 rounded-[5px]" style={{ color: col, border: '1px solid var(--os-border)' }}>
-                    {t.mastery}
+                  <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full" style={{ color: col, border: '1px solid var(--os-border)' }}>
+                    {tk.mastery}
                   </span>
-                  <span className="metadata text-[11px]" style={{ color: 'var(--os-brass)' }}>Open →</span>
+                  <span className="text-[13px] font-medium text-[#cba86a] group-hover:translate-x-0.5 transition-transform">
+                    {t('Open', 'Mở')} →
+                  </span>
                 </div>
               </div>
             );
@@ -687,14 +640,7 @@ export function SudokuLab() {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
-          <button
-            type="button"
-            onClick={() => setSection('path')}
-            className="metadata text-[10.5px] uppercase tracking-[0.12em] hover:underline cursor-pointer"
-            style={{ color: 'var(--os-ivory-muted)' }}
-          >
-            {t('← BACK TO CURRICULUM', '← QUAY LẠI GIÁO TRÌNH')}
-          </button>
+          <h2 className="editorial-h2 truncate">{formatArrows(activeTech.name)}</h2>
 
           <div className="flex gap-1.5">
             {(['unknown', 'practicing', 'mastered'] as const).map((m) => (
@@ -714,8 +660,6 @@ export function SudokuLab() {
             ))}
           </div>
         </div>
-
-        <h2 className="editorial-h2">{formatArrows(activeTech.name)}</h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-6 space-y-4">

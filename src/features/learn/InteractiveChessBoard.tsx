@@ -101,7 +101,7 @@ export function InteractiveChessBoard({
           border: '1px solid var(--os-border)',
         }}
       >
-        <div className="w-full h-full grid grid-cols-8 grid-rows-8 rounded-[8px] overflow-hidden">
+        <div className="w-full h-full grid grid-cols-8 grid-rows-8 rounded-[8px] overflow-hidden touch-manipulation select-none">
           {rankIndices.map((rIdx) =>
             fileIndices.map((cIdx) => {
               const sq = coordToSq(rIdx, cIdx);

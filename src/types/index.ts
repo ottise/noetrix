@@ -1,3 +1,5 @@
+import type { LessonDiagram } from '../features/learn/programmingData';
+
 export type WorkspaceId =
   | 'home'
   | 'learning'
@@ -127,6 +129,7 @@ export interface WorkflowLecture {
   notes: string;
   images: MediaAttachmentRef[];
   audios: MediaAttachmentRef[];
+  diagrams?: { id: string; title: string; diagram: LessonDiagram }[];
   createdAt: number;
   updatedAt: number;
 }
@@ -340,6 +343,7 @@ export interface HobbyLog {
   distanceMeters?: number;
   stroke?: string;
   gymSplit?: string;
+  gymPhotoKind?: 'body' | 'scale';
   locationName?: string;
   imageMediaId?: string;
   imageRemoteUrl?: string;

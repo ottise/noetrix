@@ -1,3 +1,5 @@
+import type { MediaAttachmentRef } from '../../types';
+
 export type ScreenplayModuleId =
   | 'overview'
   | 'story_bible'
@@ -74,6 +76,9 @@ export interface TimelineEvent {
   secretOrTwist: string;
   revealTiming: string;
   consistencyNote: string;
+  x?: number;
+  y?: number;
+  connectedEventIds?: string[];
 }
 
 export interface DialogueLine {
@@ -101,6 +106,7 @@ export interface ScreenplayScene {
   relatedEventIds: string[];
   clue: string;
   purposeNote: string;
+  audios?: MediaAttachmentRef[];
   updatedAt: number;
 }
 

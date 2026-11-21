@@ -33,23 +33,15 @@ export function calculateLevel(totalXp: number): LevelInfo {
   return { level, title, currentLevelXp, nextLevelXp, progressPercent };
 }
 
-export async function awardXp(amount: number): Promise<void> {
-  if (amount === 0) return;
-  const profile = await db.profile.get('main');
-  if (!profile) return;
-  const nextXp = Math.max(0, profile.xp + amount);
-  await db.profile.update('main', {
-    xp: nextXp,
-    updatedAt: Date.now(),
-  });
+export async function awardXp(_amount: number): Promise<void> {
+  // XP system disabled
 }
 
-export async function incrementTiktokRescue(xpBonus = 25): Promise<void> {
+export async function incrementTiktokRescue(_xpBonus = 0): Promise<void> {
   const profile = await db.profile.get('main');
   if (!profile) return;
   await db.profile.update('main', {
     tiktokRescues: (profile.tiktokRescues || 0) + 1,
-    xp: profile.xp + xpBonus,
     updatedAt: Date.now(),
   });
 }

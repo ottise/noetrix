@@ -23,15 +23,54 @@ const LEGACY_MOCK_WORKFLOW_IDS = [
   'wf_mwot1l9m_tyr3w5b',
 ];
 
+const EMPTY_DRAFT_WORKFLOW_IDS = [
+  'wf_mwp3s0il_57jcl9k',
+  'wf_mwp6pp37_fmzbemg',
+];
+
 const LEGACY_MOCK_PSYCH_IDS = [
   'psy_starter_1',
   'psy_res_001',
+];
+
+const EMPTY_DRAFT_PSYCH_IDS = [
+  'psy_res_mwp53zts',
+  'psy_res_mwp8ufdp',
 ];
 
 export async function purgeLegacyMockSchedule(): Promise<void> {
   await db.tasks.bulkDelete(LEGACY_MOCK_TASK_IDS);
   await db.workflowLectures.bulkDelete(LEGACY_MOCK_WORKFLOW_IDS);
   await db.psychologyPosts.bulkDelete(LEGACY_MOCK_PSYCH_IDS);
+
+  for (const id of EMPTY_DRAFT_WORKFLOW_IDS) {
+    const rec = await db.workflowLectures.get(id);
+    if (
+      rec &&
+      !rec.docVi.trim() &&
+      !rec.docEn.trim() &&
+      !rec.notes.trim() &&
+      rec.images.length === 0 &&
+      rec.audios.length === 0
+    ) {
+      await db.workflowLectures.delete(id);
+    }
+  }
+
+  for (const id of EMPTY_DRAFT_PSYCH_IDS) {
+    const rec = await db.psychologyPosts.get(id);
+    if (
+      rec &&
+      !rec.hook.trim() &&
+      !rec.rawVi.trim() &&
+      !rec.researchNotes.trim() &&
+      !rec.sources.trim() &&
+      !rec.englishRewrite.trim() &&
+      !rec.reflection.trim()
+    ) {
+      await db.psychologyPosts.delete(id);
+    }
+  }
   const excalidrawLogs = await db.hobbyLogs
     .filter(
       (l) =>

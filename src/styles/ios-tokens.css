@@ -1,15 +1,24 @@
 /* ==========================================================================
-   NOETRIX — VISUAL DESIGN SYSTEM V2
-   85% Apple Minimal · 10% Technical Interface · 5% Dark Academia
-   Typography: SF Pro Display · SF Pro Text · SF Mono
+   NOETRIX — INSTAGRAM iOS & DESKTOP COMPACT TYPOGRAPHY SYSTEM
+   Prioritizes Apple San Francisco on iOS, native Segoe UI / Roboto elsewhere.
    ========================================================================== */
 
 :root {
-  /* Editorial Noir & Technical Font Stacks: Montserrat · Plus Jakarta Sans · Space Mono · Cinzel */
-  --font-display: "Montserrat", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-body: "Montserrat", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "Space Mono", "JetBrains Mono", ui-monospace, monospace;
-  --font-crest: "Cinzel", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-crest: var(--font-sans);
+
+  /* Compact Typography Scale */
+  --type-page-title: 22px;
+  --type-section: 17px;
+  --type-card: 15px;
+  --type-body: 14px;
+  --type-button: 14px;
+  --type-secondary: 12px;
+  --type-metadata: 11px;
+  --type-label: 10px;
 
   /* Warm Archival Light Mode */
   --os-obsidian: #f4f1ea;
@@ -93,4 +102,13 @@
   --ios-nav-bar: rgba(12, 15, 19, 0.88);
   --ios-tab-bar: rgba(11, 13, 16, 0.92);
   --ios-sheet-bg: #11141a;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

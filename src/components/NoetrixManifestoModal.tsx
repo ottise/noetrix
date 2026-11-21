@@ -79,13 +79,13 @@ export function NoetrixManifestoModal({
         >
           <div className="space-y-1.5">
             <h2
-              className="noetrix-logo text-[36px] sm:text-[42px] leading-none"
+              className="noetrix-logo text-[22px] leading-tight"
               style={{ color: 'var(--os-ivory-bright)' }}
             >
               NOETRIX
             </h2>
             <p
-              className="metadata text-[11px] uppercase tracking-[0.22em]"
+              className="metadata"
               style={{ color: 'var(--os-brass)' }}
             >
               {t('THE ART OF BECOMING', 'NGHỆ THUẬT TRỞ THÀNH')}

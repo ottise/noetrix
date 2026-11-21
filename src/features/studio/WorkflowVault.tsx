@@ -5,9 +5,10 @@ import { awardXp } from '../../lib/gamification';
 import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
 import type { WorkflowLecture, WorkflowStatus } from '../../types';
-import { CheckDot, EmptyState, useToast } from '../../components/ui/Primitives';
+import { CheckDot, EmptyState, useRoomBack, useToast } from '../../components/ui/Primitives';
 import { ImageGallery } from '../../components/ImageGallery';
 import { AudioRecorderPlayer } from '../../components/AudioRecorderPlayer';
+import { ExcalidrawCanvas } from './ExcalidrawCanvas';
 
 const STATUS_META: Record<WorkflowStatus, { label: string; color: string }> = {
   studying: { label: 'Studying', color: 'var(--os-ivory-muted)' },
@@ -35,9 +36,11 @@ export function WorkflowVault() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | WorkflowStatus>('all');
   const [docLang, setDocLang] = useState<'vi' | 'en' | 'both'>('vi');
-  const [newTagInput, setNewTagInput] = useState('');
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
 
   const selected = lectures.find((l) => l.id === selectedId) || null;
+
+  useRoomBack(Boolean(selected), () => setSelectedId(null));
 
   const createNewLecture = async () => {
     triggerHaptic('light');
@@ -143,18 +146,9 @@ export function WorkflowVault() {
       <div className="space-y-6">
         {/* Top Quiet Editorial Navigation Bar */}
         <div
-          className="flex flex-wrap items-center justify-between gap-3 pb-4"
+          className="flex flex-wrap items-center justify-end gap-3 pb-4"
           style={{ borderBottom: '1px solid var(--os-border)' }}
         >
-          <button
-            type="button"
-            onClick={() => setSelectedId(null)}
-            className="text-[13.5px] font-medium cursor-pointer"
-            style={{ color: 'var(--os-ivory-muted)' }}
-          >
-            ← {t('Back to Archive', 'Quay lại Kho lưu trữ')}
-          </button>
-
           <div className="flex items-center gap-3">
             <select
               value={selected.status}
@@ -227,7 +221,7 @@ export function WorkflowVault() {
             value={selected.title}
             onChange={(e) => updateLecture(selected.id, { title: e.target.value })}
             placeholder="Lecture Title..."
-            className="w-full bg-transparent font-editorial-vi text-[28px] sm:text-[36px] leading-[1.15]"
+            className="w-full bg-transparent text-[22px] font-semibold leading-snug tracking-[-0.02em]"
             style={{ color: 'var(--os-ivory-bright)' }}
           />
 
@@ -255,25 +249,6 @@ export function WorkflowVault() {
                 </button>
               </span>
             ))}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const cleaned = newTagInput.trim();
-                if (cleaned && !selected.tags.includes(cleaned)) {
-                  updateLecture(selected.id, { tags: [...selected.tags, cleaned] });
-                }
-                setNewTagInput('');
-              }}
-            >
-              <input
-                type="text"
-                value={newTagInput}
-                onChange={(e) => setNewTagInput(e.target.value)}
-                placeholder="+ tag"
-                className="w-20 bg-transparent text-[12px]"
-                style={{ color: 'var(--os-ivory-faint)' }}
-              />
-            </form>
           </div>
         </div>
 
@@ -369,14 +344,46 @@ export function WorkflowVault() {
               </div>
             </div>
 
-            {/* Visual Diagrams & Figures directly below article */}
+            {/* Visual Diagrams & Figures + Built-in Whiteboard directly below article */}
             <div
-              className="rounded-[14px] p-5 sm:p-7"
+              className="rounded-[14px] p-5 sm:p-7 space-y-5"
               style={{
                 backgroundColor: 'var(--os-graphite)',
                 border: '1px solid var(--os-border)',
               }}
             >
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setWhiteboardOpen((v) => !v)}
+                  className="px-3.5 py-1.5 rounded-[8px] text-[12px] font-semibold cursor-pointer border transition-colors"
+                  style={{
+                    backgroundColor: whiteboardOpen ? '#cba86a' : '#14161b',
+                    color: whiteboardOpen ? '#0c0f13' : '#cba86a',
+                    borderColor: 'rgba(203, 168, 106, 0.4)',
+                  }}
+                >
+                  {whiteboardOpen
+                    ? t('Close Whiteboard', 'Đóng bảng vẽ')
+                    : t('+ Draw Whiteboard', '+ Vẽ bảng vẽ')}
+                </button>
+              </div>
+
+              {whiteboardOpen && (
+                <div className="rounded-xl overflow-hidden border border-[#2a3140]">
+                  <ExcalidrawCanvas
+                    onSaveImageToArticle={(img) => {
+                      const nextImages = [...selected.images, img];
+                      updateLecture(selected.id, {
+                        images: nextImages,
+                        checklist: { ...selected.checklist, images: nextImages.length > 0 },
+                      });
+                      setWhiteboardOpen(false);
+                    }}
+                  />
+                </div>
+              )}
+
               <ImageGallery
                 images={selected.images}
                 onChange={(images) =>

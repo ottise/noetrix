@@ -1,20 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, createId, getLocalDateStr, formatShortDate } from '../../db/database';
+import { db } from '../../db/database';
 import { triggerHaptic } from '../../lib/haptics';
 import { useLanguage } from '../../lib/i18n';
-import type { ChessGameLog, ChessModule, ChessStage } from '../../types';
-import { Modal, useToast } from '../../components/ui/Primitives';
+import type { ChessModule, ChessStage } from '../../types';
+import { DirectoryCard, useRoomBack, useToast } from '../../components/ui/Primitives';
 import {
   CHESS_PUZZLES,
   INITIAL_FEN,
   OPENING_LINES,
-  type ChessMove,
 } from './chessEngine';
 import { InteractiveChessBoard } from './InteractiveChessBoard';
 
-type ChessSection = 'overview' | 'path' | 'lesson' | 'practice' | 'journal' | 'library';
-type LessonTab = 'theory' | 'examples' | 'practice' | 'explain' | 'review';
+type ChessSection = 'overview' | 'path' | 'lesson' | 'library';
+type LessonTab = 'theory' | 'examples' | 'explain' | 'review';
 type LessonStatus = 'not_started' | 'learning' | 'practicing' | 'mastered' | 'paused';
 
 const CHESS_UI_STATE_KEY = 'noetrix_chess_room_state_v2';
@@ -232,7 +231,10 @@ function loadChessUI(): PersistedChessUI {
     if (raw) {
       const p = JSON.parse(raw) as Partial<PersistedChessUI>;
       return {
-        section: p.section || 'overview',
+        section:
+          p.section && (p.section as string) !== 'journal' && (p.section as string) !== 'practice'
+            ? p.section
+            : 'overview',
         activeStage: p.activeStage || 'beginner',
         activeLessonId: p.activeLessonId || 'ch_01_opening_principles',
         libraryStatuses: p.libraryStatuses || {},
@@ -259,31 +261,13 @@ export function ChessLab() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const modules = useLiveQuery(() => db.chessModules.toArray()) || [];
-  const games = useLiveQuery(() => db.chessGames.orderBy('createdAt').reverse().toArray()) || [];
 
   const [ui, setUi] = useState<PersistedChessUI>(loadChessUI);
   const [lessonTab, setLessonTab] = useState<LessonTab>('theory');
 
-  // Practice Board states
-  const [practiceMode, setPracticeMode] = useState<'sandbox' | 'openings' | 'puzzles'>('openings');
-  const [openingId, setOpeningId] = useState(OPENING_LINES[0].id);
-  const [openingStep, setOpeningStep] = useState(0);
-  const [puzzleIdx, setPuzzleIdx] = useState(0);
-  const [puzzleFeedback, setPuzzleFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [showPuzzleHint, setShowPuzzleHint] = useState(false);
-
-  // Game Journal Modal & Fields
-  const [logOpen, setLogOpen] = useState(false);
-  const [platform, setPlatform] = useState<ChessGameLog['platform']>('Lichess');
-  const [rating, setRating] = useState<number>(1000);
-  const [result, setResult] = useState<ChessGameLog['result']>('loss');
-  const [turningPointMove, setTurningPointMove] = useState('');
-  const [missedCandidateMove, setMissedCandidateMove] = useState('');
-  const [calcMode, setCalcMode] = useState<'calculated' | 'guessed' | 'mixed'>('calculated');
-  const [errCat, setErrCat] = useState<NonNullable<ChessGameLog['errorCategory']>>('tactics');
-  const [blunderType, setBlunderType] = useState('Hanging Piece / Bỏ sót đe dọa');
-  const [gameUrl, setGameUrl] = useState('');
-  const [takeaway, setTakeaway] = useState('');
+  useRoomBack(ui.section !== 'overview', () =>
+    setUi((p) => ({ ...p, section: p.section === 'lesson' ? 'path' : 'overview' }))
+  );
 
   // Library Search
   const [libSearch, setLibSearch] = useState('');
@@ -356,372 +340,176 @@ export function ChessLab() {
     showToast(`Trạng thái bài học: ${STATUS_META[next].label}`);
   };
 
-  const handleLogGame = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const item: ChessGameLog = {
-      id: createId('cg'),
-      date: getLocalDateStr(),
-      platform,
-      rating: Number(rating) || 1000,
-      result,
-      blunderType: blunderType.trim() || 'Uncategorized',
-      gameUrl: gameUrl.trim(),
-      takeaway: takeaway.trim(),
-      turningPointMove: turningPointMove.trim(),
-      missedCandidateMove: missedCandidateMove.trim(),
-      calculatedOrGuessed: calcMode,
-      errorCategory: errCat,
-      createdAt: Date.now(),
-    };
-    await db.chessGames.put(item);
-    setTakeaway('');
-    setTurningPointMove('');
-    setMissedCandidateMove('');
-    setGameUrl('');
-    setLogOpen(false);
-    showToast('Đã lưu ván đấu & phân tích tư duy vào Game Journal');
-  };
-
   // Top Header / Section Navigation inside Chess Room
   const renderSectionBreadcrumb = (title: string) => (
-    <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-[var(--os-border)]">
-      <div className="flex items-center gap-2 metadata text-[10.5px] uppercase tracking-[0.12em]">
-        <button
-          type="button"
-          onClick={() => setUi((p) => ({ ...p, section: 'overview' }))}
-          className="hover:underline cursor-pointer"
-          style={{ color: 'var(--os-ivory-muted)' }}
-        >
-          ← CHESS ROOM
-        </button>
-        <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-        <span style={{ color: 'var(--os-brass)' }}>{title}</span>
-      </div>
-
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {(
-          [
-            ['path', t('Learning Path', 'Lộ trình học')],
-            ['practice', t('Practice Board', 'Bàn cờ thực hành')],
-          ] as const
-        ).map(([sec, lbl]) => (
-          <button
-            key={sec}
-            type="button"
-            onClick={() => setUi((p) => ({ ...p, section: sec }))}
-            className="px-2.5 py-1 rounded-[7px] text-[11.5px] cursor-pointer transition-colors"
-            style={{
-              backgroundColor: ui.section === sec ? '#23262E' : 'transparent',
-              color: ui.section === sec ? 'var(--os-brass)' : 'var(--os-ivory-muted)',
-              border: ui.section === sec ? '1px solid rgba(185,155,121,0.35)' : '1px solid transparent',
-            }}
-          >
-            {lbl}
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center pb-3 border-b border-[var(--os-border)]">
+      <h2 className="text-[17px] font-semibold text-[#EDEAE2]">{title}</h2>
     </div>
   );
 
   // =========================================================================
-  // 1. CHESS ROOM OVERVIEW (Clean Orientation Hub — No Wall of Text!)
+  // 1. CHESS ROOM OVERVIEW (Clean Stages Directory matching The Lab)
   // =========================================================================
   if (ui.section === 'overview') {
     const resumeMod = activeLesson || sortedModules[0];
-    const resumeNum = resumeMod ? extractLessonNumber(resumeMod.title) : 1;
-    const resumeStage = resumeMod?.phase === 1 ? 'FOUNDATION' : resumeMod?.phase === 2 ? 'INTERMEDIATE' : 'ADVANCED';
-    const stageTotal = resumeMod?.phase === 1 ? 6 : resumeMod?.phase === 2 ? 7 : 7;
 
     return (
-      <div className="space-y-9">
-        {/* Identity & Honest Progress Summary */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--os-border)]">
-          <div className="space-y-1">
-            <span className="metadata text-[10.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-              {t('THE PLAYGROUND / CHESS ROOM', 'SÂN CHƠI / PHÒNG CỜ VUA')}
-            </span>
-            <h2 className="editorial-h2">{t('Think ahead before you move.', 'Nghĩ trước vài bước trước khi đi.')}</h2>
-            <p className="text-[13.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              {t('A quiet, structured journey from fundamentals to mastery.', 'Hành trình tĩnh lặng và bài bản từ nền tảng đến tinh thông.')}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-6 shrink-0">
-            <div>
-              <p className="font-editorial text-[24px] leading-none tabular-nums" style={{ color: 'var(--os-ivory-bright)' }}>
-                {masteredCount} <span className="text-[14px]" style={{ color: 'var(--os-ivory-faint)' }}>/ {sortedModules.length}</span>
-              </p>
-              <p className="metadata text-[9.5px] uppercase mt-1" style={{ color: 'var(--os-ivory-faint)' }}>
-                {t('Lessons Mastered', 'Bài đã thành thạo')}
-              </p>
+      <div className="space-y-4">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap pb-1">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-[15px] font-semibold text-white">
+                {t('Stages', 'Lộ trình cờ vua')}
+              </h2>
+              <span
+                className="text-[11px] font-medium px-2.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: 'rgba(155, 170, 152, 0.12)',
+                  color: '#9BAA98',
+                  border: '1px solid rgba(155, 170, 152, 0.25)',
+                }}
+              >
+                {masteredCount}/{sortedModules.length} ✓
+              </span>
             </div>
-          </div>
-        </div>
 
-        {/* CURRENT SESSION / RESUME LEARNING SPOTLIGHT */}
-        {resumeMod && (
-          <section
-            aria-label="Current Session"
-            className="rounded-[14px] overflow-hidden"
-            style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-              <div className="lg:col-span-8 p-6 sm:p-7 flex flex-col justify-between gap-5">
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="metadata text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                      {t('● CURRENT SESSION · RESUME LEARNING', '● PHIÊN HIỆN TẠI · HỌC TIẾP')}
-                    </span>
-                    <span className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      · {resumeStage} · {t('LESSON', 'BÀI')} {String(resumeNum).padStart(2, '0')} / {String(stageTotal).padStart(2, '0')}
-                    </span>
-                  </div>
-                  <h3 className="font-editorial-vi text-[24px] sm:text-[28px] leading-snug" style={{ color: 'var(--os-ivory-bright)' }}>
-                    {resumeMod.title.replace(/^\d+\.\s*/, '')}
-                  </h3>
-                  <p className="text-[13.5px] leading-relaxed line-clamp-2" style={{ color: 'var(--os-ivory-muted)' }}>
-                    {resumeMod.description}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--os-border)]">
-                  <button
-                    type="button"
-                    onClick={() => openLessonWorkspace(resumeMod, 'theory')}
-                    className="px-4 py-2 rounded-[9px] text-[13px] font-medium cursor-pointer transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: 'var(--os-ivory-bright)', color: 'var(--os-obsidian)' }}
-                  >
-                    {t('Continue where you left off →', 'Tiếp tục bài đang học →')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUi((p) => ({ ...p, section: 'practice' }))}
-                    className="metadata text-[11px] hover:underline cursor-pointer"
-                    style={{ color: 'var(--os-dusty-blue)' }}
-                  >
-                    {t('Open Practice Board ↗', 'Mở Bàn cờ thực hành ↗')}
-                  </button>
-                </div>
-              </div>
-
-              <div className="lg:col-span-4 relative min-h-[160px] lg:border-l border-[var(--os-border)] overflow-hidden p-5 flex flex-col justify-end">
-                <img
-                  src="/art/room-playground.jpg"
-                  alt="Chess Room Atmosphere"
-                  className="absolute inset-0 w-full h-full object-cover opacity-80"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(16,17,20,0.3) 0%, rgba(16,17,20,0.92) 100%)',
-                  }}
-                />
-                <div className="relative z-10 space-y-1">
-                  <span className="metadata text-[9.5px] uppercase tracking-[0.14em]" style={{ color: 'var(--os-brass)' }}>
-                    {t('RULE 01', 'NGUYÊN TẮC 01')}
-                  </span>
-                  <p className="text-[12.5px] leading-relaxed" style={{ color: 'rgba(237,234,226,0.88)' }}>
-                    {t('“Don’t memorize moves. Understand why a move works.”', '“Đừng học vẹt nước đi. Hãy hiểu vì sao nước đi đó có giá trị.”')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* FOUR CLEAN DESTINATIONS (Overview -> Destinations, Not All Content Dumped!) */}
-        <section className="space-y-3">
-          <p className="editorial-eyebrow">{t('EXPLORE CHESS ROOM', 'KHÁM PHÁ PHÒNG CỜ')}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 border-y divide-y sm:divide-y-0 sm:divide-x divide-[var(--os-border)]" style={{ borderColor: 'var(--os-border)' }}>
-            {(
-              [
-                {
-                  id: 'path',
-                  num: '01',
-                  title: t('Learning Path', 'Lộ Trình Học'),
-                  sub: t('3-stage curriculum from Foundation to Advanced.', 'Giáo trình 3 giai đoạn từ Foundation đến Advanced.'),
-                  cta: `${sortedModules.length} ${t('lessons', 'bài')}`,
-                  accent: 'var(--os-brass)',
-                },
-                {
-                  id: 'practice',
-                  num: '02',
-                  title: t('Practice Board', 'Bàn Cờ Thực Hành'),
-                  sub: t('Legal drag-and-drop board, Openings & Tactical Puzzles.', 'Bàn cờ tương tác kéo thả hợp lệ, Khai cuộc & Tactical Puzzles.'),
-                  cta: t('Interactive 8×8', 'Bàn cờ 8×8'),
-                  accent: 'var(--os-dusty-blue)',
-                },
-              ] as const
-            ).map((dest, idx) => (
+            <div className="flex items-center gap-2">
+              {resumeMod && (
+                <button
+                  type="button"
+                  onClick={() => openLessonWorkspace(resumeMod, 'theory')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2b3343] hover:border-[#cba86a]/60 bg-[#12161f] hover:bg-[#181d28] text-[#cba86a] hover:text-[#faebd7] text-[12px] font-medium transition-all cursor-pointer"
+                >
+                  <span>{t('Resume', 'Học tiếp')}</span>
+                  <span>→</span>
+                </button>
+              )}
               <button
-                key={dest.id}
                 type="button"
                 onClick={() => {
                   triggerHaptic('selection');
-                  setUi((p) => ({ ...p, section: dest.id }));
+                  setUi((p) => ({ ...p, section: 'library' }));
                 }}
-                className={`py-5 ${idx === 0 ? 'sm:pr-5' : 'sm:pl-5'} text-left flex flex-col justify-between gap-4 hover:bg-[rgba(217,213,203,0.025)] transition-colors cursor-pointer group`}
+                className="px-3 py-1.5 rounded-lg border border-[#222834] hover:border-[#384152] bg-[#12151c] text-[#9ca3af] hover:text-white text-[12px] font-medium transition-all cursor-pointer"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="metadata text-[10.5px]" style={{ color: dest.accent }}>
-                      {dest.num}
-                    </span>
-                    <span className="metadata text-[10px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      {dest.cta}
-                    </span>
-                  </div>
-                  <h3 className="editorial-h3 group-hover:text-white transition-colors">
-                    {dest.title}
-                  </h3>
-                  <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-                    {dest.sub}
-                  </p>
-                </div>
-                <span className="metadata text-[11px] group-hover:translate-x-1 transition-transform" style={{ color: 'var(--os-brass)' }}>
-                  Enter →
-                </span>
+                {t('Library', 'Tài liệu')}
               </button>
-            ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {STAGES.map((st) => {
+              const stItems = sortedModules.filter((m) => m.phase === st.phase);
+              const stMastered = stItems.filter((m) => m.done).length;
+              return (
+                <DirectoryCard
+                  key={st.id}
+                  code={`STAGE.${st.code}`}
+                  title={st.title}
+                  subtitle={st.focus}
+                  statuses={[
+                    { label: `${stItems.length} ${t('lessons', 'bài')}`, tone: 'muted' },
+                    ...(stMastered > 0
+                      ? [{ label: `${stMastered} ${t('Mastered', 'Thành thạo')}`, tone: 'emerald' as const }]
+                      : []),
+                  ]}
+                  onClick={() =>
+                    setUi((p) => ({
+                      ...p,
+                      activeStage: st.id,
+                      section: 'path',
+                    }))
+                  }
+                />
+              );
+            })}
           </div>
         </section>
-
-        {/* Recent Activity (Compact) */}
-        {games.length > 0 && (
-          <section className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <p className="editorial-eyebrow">RECENT GAME REFLECTION</p>
-              <button
-                type="button"
-                onClick={() => setUi((p) => ({ ...p, section: 'journal' }))}
-                className="metadata text-[10.5px] hover:underline cursor-pointer"
-                style={{ color: 'var(--os-dusty-blue)' }}
-              >
-                View all →
-              </button>
-            </div>
-            <div className="p-4 rounded-[12px] flex items-center justify-between gap-3" style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}>
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-medium truncate" style={{ color: 'var(--os-ivory-bright)' }}>
-                  {games[0].platform} · {games[0].result.toUpperCase()} · {games[0].blunderType}
-                </p>
-                <p className="text-[12px] truncate mt-0.5" style={{ color: 'var(--os-ivory-muted)' }}>
-                  {games[0].takeaway || 'Đã ghi nhận nhật ký ván đấu.'}
-                </p>
-              </div>
-              <span className="metadata text-[10.5px] shrink-0" style={{ color: 'var(--os-ivory-faint)' }}>
-                {formatShortDate(games[0].date)}
-              </span>
-            </div>
-          </section>
-        )}
       </div>
     );
   }
 
   // =========================================================================
-  // 2. LEARNING PATH (3 Stages: Foundation, Intermediate, Advanced)
+  // 2. LEARNING PATH (Stage Syllabus & Lessons)
   // =========================================================================
   if (ui.section === 'path') {
     return (
-      <div className="space-y-8">
-        {renderSectionBreadcrumb('LEARNING PATH')}
-
-        {/* 3 Clean Stages */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {STAGES.map((st) => {
-            const stItems = sortedModules.filter((m) => m.phase === st.phase);
-            const stMastered = stItems.filter((m) => m.done).length;
-            const active = ui.activeStage === st.id;
-            return (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => setUi((p) => ({ ...p, activeStage: st.id }))}
-                className="p-5 rounded-[12px] text-left space-y-2.5 transition-all cursor-pointer"
-                style={{
-                  backgroundColor: active ? 'var(--os-stone)' : 'var(--os-graphite)',
-                  border: active ? '1px solid rgba(185,155,121,0.55)' : '1px solid var(--os-border)',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="metadata text-[10.5px] uppercase" style={{ color: 'var(--os-brass)' }}>
-                    STAGE {st.code}
-                  </span>
-                  <span className="metadata text-[10.5px] tabular-nums" style={{ color: 'var(--os-ivory-faint)' }}>
-                    {stMastered}/{stItems.length} Mastered
-                  </span>
-                </div>
-                <h3 className="editorial-h3">{st.title}</h3>
-                <p className="text-[12px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                  {st.focus}
-                </p>
-                <p className="metadata text-[10px] pt-1" style={{ color: 'var(--os-ivory-faint)' }}>
-                  {st.eloRef}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Selected Stage Detail & Ordered Lessons */}
-        <div className="space-y-5 pt-2">
-          <div className="p-5 rounded-[12px] space-y-2" style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)' }}>
-            <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-dusty-blue)' }}>
-              STAGE {currentStageMeta.code} · {currentStageMeta.title.toUpperCase()} OBJECTIVES
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--os-border)]">
+          <div>
+            <span className="block text-[11px] font-medium text-[#cba86a]">
+              STAGE.{currentStageMeta.code} · {currentStageMeta.eloRef}
             </span>
-            <p className="text-[14px]" style={{ color: 'var(--os-ivory-bright)' }}>
-              {currentStageMeta.goal}
-            </p>
-            <p className="text-[12.5px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              <strong>Tiêu chí hoàn thành gợi ý:</strong> {currentStageMeta.criteria}
-            </p>
+            <h2 className="text-[17px] font-semibold text-white">{currentStageMeta.title}</h2>
           </div>
 
-          {/* Ordered Lesson List — ZERO Fake Checkmarks! */}
-          <div className="divide-y divide-[var(--os-border)] border-y border-[var(--os-border)]">
-            {activeStageLessons.map((mod) => {
-              const st = getLessonStatus(mod, ui.lessonStatuses);
-              const meta = STATUS_META[st];
+          <div className="flex items-center gap-1.5">
+            {STAGES.map((st) => {
+              const active = ui.activeStage === st.id;
               return (
-                <div
-                  key={mod.id}
-                  onClick={() => openLessonWorkspace(mod)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') openLessonWorkspace(mod);
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setUi((p) => ({ ...p, activeStage: st.id }))}
+                  className="px-2.5 py-1 rounded-lg text-[12px] font-medium cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: active ? '#1e2430' : 'transparent',
+                    color: active ? '#cba86a' : '#8b95a7',
+                    border: active ? '1px solid rgba(203,168,106,0.45)' : '1px solid transparent',
                   }}
-                  className="py-4 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-[rgba(217,213,203,0.025)] transition-colors group"
                 >
-                  <div className="min-w-0 space-y-1">
-                    <h4 className="text-[15.5px] font-medium group-hover:text-white" style={{ color: 'var(--os-ivory-bright)' }}>
-                      {mod.title}
-                    </h4>
-                    <p className="text-[12.5px] line-clamp-1" style={{ color: 'var(--os-ivory-muted)' }}>
-                      {mod.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span
-                      className="metadata text-[10px] uppercase tracking-[0.06em] px-2.5 py-1 rounded-[6px]"
-                      style={{
-                        backgroundColor: meta.bg,
-                        color: meta.color,
-                        border: '1px solid var(--os-border)',
-                      }}
-                    >
-                      {meta.label}
-                    </span>
-                    <span className="metadata text-[11.5px] group-hover:translate-x-1 transition-transform" style={{ color: 'var(--os-brass)' }}>
-                      Open Lesson →
-                    </span>
-                  </div>
-                </div>
+                  {st.code}
+                </button>
               );
             })}
           </div>
+        </div>
+
+        <p className="text-[13px] text-[#9ca3af]">{currentStageMeta.goal}</p>
+
+        {/* Ordered Lesson List */}
+        <div className="divide-y divide-[var(--os-border)] border-y border-[var(--os-border)]">
+          {activeStageLessons.map((mod) => {
+            const st = getLessonStatus(mod, ui.lessonStatuses);
+            const meta = STATUS_META[st];
+            return (
+              <div
+                key={mod.id}
+                onClick={() => openLessonWorkspace(mod)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') openLessonWorkspace(mod);
+                }}
+                className="py-4 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-[rgba(217,213,203,0.025)] transition-colors group"
+              >
+                <div className="min-w-0 space-y-1">
+                  <h4 className="text-[15px] font-semibold group-hover:text-white" style={{ color: 'var(--os-ivory-bright)' }}>
+                    {mod.title}
+                  </h4>
+                  <p className="text-[12px] line-clamp-1" style={{ color: 'var(--os-ivory-muted)' }}>
+                    {mod.description}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span
+                    className="text-[11px] font-medium px-2.5 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: meta.bg,
+                      color: meta.color,
+                      border: '1px solid var(--os-border)',
+                    }}
+                  >
+                    {meta.label}
+                  </span>
+                  <span className="text-[13px] font-medium text-[#cba86a] group-hover:translate-x-0.5 transition-transform">
+                    {t('Open', 'Mở')} →
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -757,19 +545,12 @@ export function ChessLab() {
 
     return (
       <div className="space-y-6">
-        {/* Breadcrumb & Status Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--os-border)]">
-          <div className="flex items-center gap-2 metadata text-[10.5px] uppercase tracking-[0.12em]">
-            <button
-              type="button"
-              onClick={() => setUi((p) => ({ ...p, section: 'path' }))}
-              className="hover:underline cursor-pointer"
-              style={{ color: 'var(--os-ivory-muted)' }}
-            >
-              ← CHESS ROOM / {stageName}
-            </button>
-            <span style={{ color: 'var(--os-ivory-faint)' }}>/</span>
-            <span style={{ color: 'var(--os-brass)' }}>LESSON {String(num).padStart(2, '0')}</span>
+          <div className="min-w-0">
+            <h2 className="editorial-h2 truncate">{activeLesson.title}</h2>
+            <p className="text-[12px] truncate" style={{ color: 'var(--os-ivory-muted)' }}>
+              {activeLesson.description}
+            </p>
           </div>
 
           <div className="flex items-center gap-1 flex-wrap">
@@ -795,21 +576,12 @@ export function ChessLab() {
           </div>
         </div>
 
-        {/* Lesson Header */}
-        <div className="space-y-1.5">
-          <h2 className="editorial-h2">{activeLesson.title}</h2>
-          <p className="text-[14px]" style={{ color: 'var(--os-ivory-muted)' }}>
-            {activeLesson.description}
-          </p>
-        </div>
-
         {/* Contextual Lesson Tabs */}
         <div className="flex items-center gap-2 border-b border-[var(--os-border)] overflow-x-auto no-scrollbar">
           {(
             [
               ['theory', 'Theory'],
               ['examples', 'Examples'],
-              ['practice', 'Practice'],
               ['explain', 'Explain'],
               ['review', 'Review'],
             ] as const
@@ -887,7 +659,7 @@ export function ChessLab() {
           </div>
         )}
 
-        {(lessonTab === 'examples' || lessonTab === 'practice') && (
+        {lessonTab === 'examples' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
             <div className="lg:col-span-6">
               <InteractiveChessBoard initialFen={lessonSampleFen} />
@@ -895,22 +667,12 @@ export function ChessLab() {
             <div className="lg:col-span-6 space-y-4">
               <div className="p-5 rounded-[12px] space-y-2.5" style={{ backgroundColor: '#14161B', border: '1px solid var(--os-border)' }}>
                 <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
-                  {lessonTab === 'examples' ? 'MINH HỌA THỰC TẾ' : 'BÀI TẬP THỰC HÀNH'}
+                  MINH HỌA THỰC TẾ
                 </span>
                 <p className="text-[14px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>
-                  {lessonTab === 'examples'
-                    ? activeLesson.example || 'Thử di chuyển các quân hợp lệ trực tiếp trên bàn cờ bên cạnh để quan sát kiểm soát ô và phản công.'
-                    : activeLesson.exercise || 'Thực hành trực tiếp trên bàn cờ: luôn rà Checks → Captures → Threats trước khi buông quân.'}
+                  {activeLesson.example || 'Thử di chuyển các quân hợp lệ trực tiếp trên bàn cờ bên cạnh để quan sát kiểm soát ô và phản công.'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setUi((p) => ({ ...p, section: 'practice' }))}
-                className="metadata text-[11px] hover:underline cursor-pointer"
-                style={{ color: 'var(--os-dusty-blue)' }}
-              >
-                Mở Practice Board đầy đủ (Openings & Tactical Puzzles) ↗
-              </button>
             </div>
           </div>
         )}
@@ -992,401 +754,7 @@ export function ChessLab() {
   }
 
   // =========================================================================
-  // 4. PRACTICE BOARD (Dedicated Interactive Legal-Move Chess Studio)
-  // =========================================================================
-  if (ui.section === 'practice') {
-    const activeOpening = OPENING_LINES.find((o) => o.id === openingId) || OPENING_LINES[0];
-    const currentOpenStep = activeOpening.steps[openingStep] || activeOpening.steps[0];
-    const currentPuzzle = CHESS_PUZZLES[puzzleIdx] || CHESS_PUZZLES[0];
-
-    const activeFen =
-      practiceMode === 'openings'
-        ? currentOpenStep.fen
-        : practiceMode === 'puzzles'
-        ? currentPuzzle.fen
-        : INITIAL_FEN;
-
-    const handlePuzzleMove = (move: ChessMove) => {
-      if (practiceMode !== 'puzzles') return;
-      if (move.from === currentPuzzle.solutionFrom && move.to === currentPuzzle.solutionTo) {
-        triggerHaptic('success');
-        setPuzzleFeedback('correct');
-        showToast(`Chính xác! ${move.san} — Đã giải được ${currentPuzzle.motif}`);
-      } else {
-        triggerHaptic('warning');
-        setPuzzleFeedback('wrong');
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        {renderSectionBreadcrumb('PRACTICE BOARD')}
-
-        {/* Mode Switcher */}
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              ['openings', 'Opening Explorer'],
-              ['puzzles', 'Tactical Puzzles'],
-              ['sandbox', 'Free Analysis Sandbox'],
-            ] as const
-          ).map(([m, lbl]) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => {
-                setPracticeMode(m);
-                setPuzzleFeedback('idle');
-                setShowPuzzleHint(false);
-              }}
-              className="px-3.5 py-1.5 rounded-[8px] text-[12.5px] font-medium cursor-pointer"
-              style={{
-                backgroundColor: practiceMode === m ? 'var(--os-brass)' : 'var(--os-graphite)',
-                color: practiceMode === m ? '#101114' : 'var(--os-ivory)',
-                border: '1px solid var(--os-border)',
-              }}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
-          {/* Interactive 8x8 Chessboard */}
-          <div className="lg:col-span-6">
-            <InteractiveChessBoard
-              initialFen={activeFen}
-              onUserMove={handlePuzzleMove}
-            />
-          </div>
-
-          {/* Right Context Panel */}
-          <div className="lg:col-span-6 space-y-4">
-            {practiceMode === 'openings' && (
-              <div className="p-5 rounded-[12px] space-y-4" style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}>
-                <div className="flex items-center justify-between">
-                  <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
-                    OPENING EXPLORER · ECO {activeOpening.eco}
-                  </span>
-                  <select
-                    value={openingId}
-                    onChange={(e) => {
-                      setOpeningId(e.target.value);
-                      setOpeningStep(0);
-                    }}
-                    className="px-2.5 py-1 rounded-[7px] text-[12px] bg-[#101114] border border-[var(--os-border)] text-[#EDEAE2]"
-                  >
-                    {OPENING_LINES.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {activeOpening.steps.map((st, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setOpeningStep(idx)}
-                      className="px-2.5 py-1 rounded-[7px] metadata text-[11px] cursor-pointer"
-                      style={{
-                        backgroundColor: openingStep === idx ? 'var(--os-brass)' : '#101114',
-                        color: openingStep === idx ? '#101114' : 'var(--os-ivory-muted)',
-                        border: '1px solid var(--os-border)',
-                      }}
-                    >
-                      {st.moveLabel}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="space-y-1.5 pt-2 border-t border-[var(--os-border)]">
-                  <span className="metadata text-[10px] uppercase" style={{ color: 'var(--os-sage)' }}>
-                    {currentOpenStep.principle}
-                  </span>
-                  <p className="text-[14px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>
-                    {currentOpenStep.explanation}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {practiceMode === 'puzzles' && (
-              <div className="p-5 rounded-[12px] space-y-4" style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}>
-                <div className="flex items-center justify-between">
-                  <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-brass)' }}>
-                    PUZZLE 0{puzzleIdx + 1}/0{CHESS_PUZZLES.length} · {currentPuzzle.motif} ({currentPuzzle.difficulty})
-                  </span>
-                  <div className="flex gap-1.5">
-                    {CHESS_PUZZLES.map((pz, i) => (
-                      <button
-                        key={pz.id}
-                        type="button"
-                        onClick={() => {
-                          setPuzzleIdx(i);
-                          setPuzzleFeedback('idle');
-                          setShowPuzzleHint(false);
-                        }}
-                        className="w-6 h-6 rounded-[6px] metadata text-[10px] cursor-pointer"
-                        style={{
-                          backgroundColor: puzzleIdx === i ? 'var(--os-brass)' : '#101114',
-                          color: puzzleIdx === i ? '#101114' : 'var(--os-ivory-muted)',
-                        }}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <h3 className="editorial-h3">{currentPuzzle.title}</h3>
-                <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-                  Lượt Trắng đi. Kéo thả hoặc bấm chọn quân để tìm nước đi thắng ngay!
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPuzzleHint((h) => !h)}
-                    className="px-3 py-1.5 rounded-[8px] metadata text-[11px] cursor-pointer"
-                    style={{ backgroundColor: '#101114', color: 'var(--os-dusty-blue)', border: '1px solid var(--os-border)' }}
-                  >
-                    {showPuzzleHint ? 'Ẩn Hint' : 'Show Hint'}
-                  </button>
-                </div>
-
-                {showPuzzleHint && (
-                  <p className="text-[13px] p-3 rounded-[8px]" style={{ backgroundColor: '#101114', color: 'var(--os-ivory)' }}>
-                    💡 {currentPuzzle.hint}
-                  </p>
-                )}
-
-                {puzzleFeedback === 'correct' && (
-                  <div className="p-3.5 rounded-[9px] space-y-1" style={{ backgroundColor: 'rgba(155,170,152,0.12)', border: '1px solid rgba(155,170,152,0.4)' }}>
-                    <p className="text-[13.5px] font-semibold" style={{ color: 'var(--os-sage)' }}>
-                      ✓ Đúng rồi!
-                    </p>
-                    <p className="text-[12.5px]" style={{ color: 'var(--os-ivory)' }}>
-                      {currentPuzzle.explanation}
-                    </p>
-                  </div>
-                )}
-                {puzzleFeedback === 'wrong' && (
-                  <div className="p-3 rounded-[9px]" style={{ backgroundColor: 'rgba(194,123,118,0.12)', border: '1px solid rgba(194,123,118,0.4)' }}>
-                    <p className="text-[13px]" style={{ color: 'var(--os-crimson)' }}>
-                      Chưa phải nước mạnh nhất. Hãy bấm Reset trên bàn cờ và rà lại Checks → Captures → Threats!
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {practiceMode === 'sandbox' && (
-              <div className="p-5 rounded-[12px] space-y-3" style={{ backgroundColor: 'var(--os-graphite)', border: '1px solid var(--os-border)' }}>
-                <span className="metadata text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--os-dusty-blue)' }}>
-                  FREE ANALYSIS SANDBOX
-                </span>
-                <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory-muted)' }}>
-                  Bàn cờ kiểm tra nước đi hợp lệ (hỗ trợ Nhập thành, Bắt tốt qua đường, Phong cấp, chống đi nước để hở Vua bị chiếu). Bấm <strong>Analyze</strong> bên dưới bàn cờ để xem đánh giá vật chất & kiểm soát trung tâm, hoặc bấm <strong>FEN</strong> để dán thế cờ cần phân tích.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================================================================
-  // 5. GAME JOURNAL (4-Question Self-Analysis Before Engine)
-  // =========================================================================
-  if (ui.section === 'journal') {
-    return (
-      <div className="space-y-6">
-        {renderSectionBreadcrumb('GAME JOURNAL')}
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="editorial-h2">Game Journal</h3>
-            <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              Tự phân tích tư duy bằng 4 câu hỏi cốt lõi trước khi bật Engine.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setLogOpen(true)}
-            className="px-4 py-2 rounded-[9px] text-[12.5px] font-semibold cursor-pointer"
-            style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
-          >
-            + Log Game Reflection
-          </button>
-        </div>
-
-        {games.length === 0 ? (
-          <div className="py-12 text-center border border-dashed border-[var(--os-border)] rounded-[12px] space-y-2">
-            <p className="text-[15px] font-medium" style={{ color: 'var(--os-ivory-bright)' }}>
-              No games recorded yet
-            </p>
-            <p className="text-[13px]" style={{ color: 'var(--os-ivory-muted)' }}>
-              Sau mỗi ván Rapid 10+5 hoặc 15+10, hãy dành 10 phút tự phân tích sai lầm và bài học vào đây.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--os-border)] border-y border-[var(--os-border)]">
-            {games.map((g) => (
-              <article key={g.id} className="py-4 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className="metadata text-[10.5px] uppercase px-2 py-0.5 rounded-[5px]"
-                      style={{
-                        backgroundColor: 'var(--os-graphite)',
-                        color:
-                          g.result === 'win'
-                            ? 'var(--os-sage)'
-                            : g.result === 'loss'
-                            ? 'var(--os-crimson)'
-                            : 'var(--os-brass)',
-                      }}
-                    >
-                      {g.result.toUpperCase()}
-                    </span>
-                    <span className="text-[14px] font-medium" style={{ color: 'var(--os-ivory-bright)' }}>
-                      {g.platform} · {g.rating} · {g.blunderType}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="metadata text-[11px]" style={{ color: 'var(--os-ivory-faint)' }}>
-                      {formatShortDate(g.date)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => db.chessGames.delete(g.id)}
-                      className="metadata text-[11px] hover:text-[var(--os-crimson)] cursor-pointer"
-                      style={{ color: 'var(--os-ivory-faint)' }}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-
-                {(g.turningPointMove || g.missedCandidateMove) && (
-                  <p className="metadata text-[11px]" style={{ color: 'var(--os-dusty-blue)' }}>
-                    {g.turningPointMove ? `Turning Point: ${g.turningPointMove}` : ''}
-                    {g.missedCandidateMove ? ` · Candidate Moves: ${g.missedCandidateMove}` : ''}
-                    {g.calculatedOrGuessed ? ` · ${g.calculatedOrGuessed.toUpperCase()}` : ''}
-                  </p>
-                )}
-
-                {g.takeaway && (
-                  <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--os-ivory)' }}>
-                    {g.takeaway}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-
-        {/* Log New Game Modal (Contains the 4 Structured Questions) */}
-        <Modal open={logOpen} onClose={() => setLogOpen(false)} title="Post-Game Self-Analysis">
-          <form onSubmit={handleLogGame} className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <select
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value as ChessGameLog['platform'])}
-                className="px-3 py-2 rounded-[9px] ios-fill text-[13px]"
-              >
-                <option value="Lichess">Lichess</option>
-                <option value="Chess.com">Chess.com</option>
-                <option value="OTB">OTB</option>
-              </select>
-              <select
-                value={result}
-                onChange={(e) => setResult(e.target.value as ChessGameLog['result'])}
-                className="px-3 py-2 rounded-[9px] ios-fill text-[13px]"
-              >
-                <option value="win">Win</option>
-                <option value="loss">Loss</option>
-                <option value="draw">Draw</option>
-              </select>
-              <input
-                type="number"
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-                placeholder="Elo"
-                className="px-3 py-2 rounded-[9px] ios-fill text-[13px] tabular-nums"
-              />
-            </div>
-
-            <input
-              type="text"
-              value={turningPointMove}
-              onChange={(e) => setTurningPointMove(e.target.value)}
-              placeholder="1. Bước ngoặt ở nước nào? (vd: 14... Nd4)"
-              className="w-full px-3.5 py-2 rounded-[9px] ios-fill text-[13px]"
-            />
-            <input
-              type="text"
-              value={missedCandidateMove}
-              onChange={(e) => setMissedCandidateMove(e.target.value)}
-              placeholder="2. Đã cân nhắc những Candidate Moves nào?"
-              className="w-full px-3.5 py-2 rounded-[9px] ios-fill text-[13px]"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                value={calcMode}
-                onChange={(e) => setCalcMode(e.target.value as 'calculated' | 'guessed' | 'mixed')}
-                className="px-3 py-2 rounded-[9px] ios-fill text-[12.5px]"
-              >
-                <option value="calculated">3. Tính thiếu biến</option>
-                <option value="guessed">3. Đi theo cảm tính / đoán</option>
-                <option value="mixed">3. Pha trộn cả hai</option>
-              </select>
-              <select
-                value={errCat}
-                onChange={(e) => setErrCat(e.target.value as NonNullable<ChessGameLog['errorCategory']>)}
-                className="px-3 py-2 rounded-[9px] ios-fill text-[12.5px]"
-              >
-                <option value="tactics">4. Lỗi Chiến thuật</option>
-                <option value="strategy">4. Lỗi Chiến lược</option>
-                <option value="endgame">4. Lỗi Tàn cuộc</option>
-                <option value="opening">4. Lỗi Khai cuộc</option>
-                <option value="time">4. Thiếu thời gian</option>
-              </select>
-            </div>
-            <input
-              type="text"
-              value={blunderType}
-              onChange={(e) => setBlunderType(e.target.value)}
-              placeholder="Mẫu sai lầm chính (vd: Bỏ sót Pin, Không check CCT...)"
-              className="w-full px-3.5 py-2 rounded-[9px] ios-fill text-[13px]"
-            />
-            <textarea
-              rows={3}
-              required
-              value={takeaway}
-              onChange={(e) => setTakeaway(e.target.value)}
-              placeholder="Bài học tư duy rút ra cho các ván sau..."
-              className="w-full px-3.5 py-2.5 rounded-[9px] ios-fill text-[13.5px]"
-            />
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-[9px] text-[13.5px] font-semibold cursor-pointer"
-              style={{ backgroundColor: 'var(--os-brass)', color: '#101114' }}
-            >
-              Lưu phân tích ván đấu
-            </button>
-          </form>
-        </Modal>
-      </div>
-    );
-  }
-
-  // =========================================================================
-  // 6. CHESS LIBRARY (Searchable & Linked to Curriculum Lessons)
+  // 4. CHESS LIBRARY (Searchable & Linked to Curriculum Lessons)
   // =========================================================================
   const filteredLib = CHESS_LIBRARY_ITEMS.filter((item) => {
     if (ui.libraryFilterLevel !== 'All' && item.level !== ui.libraryFilterLevel) return false;
